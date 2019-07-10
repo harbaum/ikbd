@@ -13,7 +13,7 @@ key matrix.
 
 ## ToDo
 
-The [https://github.com/freecores/hd63701](HD63701) does not implement
+The [HD63701](https://github.com/freecores/hd63701) does not implement
 single chip mode (mode 7) which is the mode used by the IKBD. It's
 thus lacking some of the ports to scan the matrix and it's lacking the
 serial port.
