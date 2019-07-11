@@ -13,6 +13,7 @@ module HD63701_SEQ
 	input						NMI,
 	input						IRQ,
 
+	input						IRQ0,
 	input						IRQ2,
 	input  	[3:0]			IRQ2V,
 
@@ -21,9 +22,7 @@ module HD63701_SEQ
 	output `mcwidth		mcout,
 	input		[7:0]			vect,
 	input						inte,
-	output					fncu,
-
-	output 	[5:0] 		PH
+	output					fncu
 );
 
 `define MC_SEI {`mcSCB,   `bfI    ,`mcrC,`mcpN,`amPC,`pcN}
@@ -32,31 +31,46 @@ module HD63701_SEQ
 reg [7:0]   opcode;
 reg `mcwidth mcode;
 reg  mcside;
+wire TRG_AIM = opcode == 8'h71;
+wire TRG_OIM = opcode == 8'h72;
+wire TRG_EIM = opcode == 8'h75;
+wire TRG_TIM = opcode == 8'h7C;
+   
 
 
-reg  pNMI, pIRQ, pIR2;
+reg  pNMI, pIRQ, pIR0, pIR2;
 
-reg  [2:0]  fINT;
-wire bIRQ  = fINT[1] & inte;
-wire bIRQ2 = fINT[0] & inte;
+reg  [3:0]  fINT;
+wire bIRQ  = fINT[2] & inte;
+wire bIRQ2 = fINT[1] & inte;
+wire bIRQ0 = fINT[0] & inte;
 
-wire 		  bINT = fINT[2]|bIRQ|bIRQ2;
-wire [7:0] vINT = fINT[2] ? `vaNMI :
-						bIRQ    ? `vaIRQ :
-						bIRQ2   ? {4'hF,IRQ2V} :
-						0;
+wire  	   bINT = fINT[3]|bIRQ|bIRQ2|bIRQ0;
+wire [7:0] vINT = fINT[3] ? `vaNMI :    // NMI     $fc
+	   bIRQ    ? `vaIRQ :           // ext IRQ $f8
+	   bIRQ2   ? {4'hF,IRQ2V} :     // TIM OCF $f4
+	   bIRQ0   ? 8'hf0 :            // SCI     $f0
+	   0;
 
-function [2:0] INTUpd;
-input [2:0] n;
+function [3:0] INTUpd;
+input [3:0] n;
 	case(n)
-	3'b000: INTUpd = 3'b000;
-	3'b001: INTUpd = 3'b000;
-	3'b010: INTUpd = 3'b000;
-	3'b011: INTUpd = 3'b001;
-	3'b100: INTUpd = 3'b000;
-	3'b101: INTUpd = 3'b001;
-	3'b110: INTUpd = 3'b010;
-	3'b111: INTUpd = 3'b011;
+	4'b0000: INTUpd = 4'b0000;
+	4'b0001: INTUpd = 4'b0000;
+	4'b0010: INTUpd = 4'b0000;
+	4'b0011: INTUpd = 4'b0001;
+	4'b0100: INTUpd = 4'b0000;
+	4'b0101: INTUpd = 4'b0001;
+	4'b0110: INTUpd = 4'b0010;
+	4'b0111: INTUpd = 4'b0011;
+	4'b1000: INTUpd = 4'b0000;
+	4'b1001: INTUpd = 4'b0001;
+	4'b1010: INTUpd = 4'b0010;
+	4'b1011: INTUpd = 4'b0011;
+	4'b1100: INTUpd = 4'b0100;
+	4'b1101: INTUpd = 4'b0101;
+	4'b1110: INTUpd = 4'b0110;
+	4'b1111: INTUpd = 4'b0111;
 	endcase
 endfunction
 
@@ -67,6 +81,7 @@ always @( posedge CLK or posedge RST ) begin
 		fINT <= 0;
 		pIRQ <= 0;
 		pNMI <= 0;
+		pIR0 <= 0;
 		pIR2 <= 0;
 
 		opcode <= 0;
@@ -76,9 +91,10 @@ always @( posedge CLK or posedge RST ) begin
 	else begin
 
 		// Capture Interrupt signal edge
-		if ((pNMI^NMI)&NMI)   fINT[2] <= 1'b1; pNMI <= NMI;
-		if ((pIRQ^IRQ)&IRQ)   fINT[1] <= 1'b1; pIRQ <= IRQ;
-		if ((pIR2^IRQ2)&IRQ2) fINT[0] <= 1'b1; pIR2 <= IRQ2;
+		if ((pNMI^NMI)&NMI)   fINT[3] <= 1'b1; pNMI <= NMI;
+		if ((pIRQ^IRQ)&IRQ)   fINT[2] <= 1'b1; pIRQ <= IRQ;
+		if ((pIR2^IRQ2)&IRQ2) fINT[1] <= 1'b1; pIR2 <= IRQ2;
+		if ((pIR0^IRQ0)&IRQ0) fINT[0] <= 1'b1; pIR0 <= IRQ0;
 
 
 		case (PHASE)
@@ -153,7 +169,6 @@ always @( negedge CLK or posedge RST ) begin
 		endcase
 	end
 end
-assign PH = PHASE;
 
 // Output MicroCode
 wire `mcwidth mcoder;

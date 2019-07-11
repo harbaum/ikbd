@@ -39,9 +39,7 @@ module ikbd_tb (
                               .PI1(pi1),
 			      .PO1(),
 			      .PI2(pi2),
-			      .PO2(),
-
-			      .phase()
+			      .PO2()
 	      );
    
 endmodule;
