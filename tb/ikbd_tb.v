@@ -22,7 +22,8 @@ module ikbd_tb (
 		input nmi,
 		input irq,
 		input [7:0] pi1,
-		input [4:0] pi2
+		input [4:0] pi2,
+		output [4:0] po2
 		);
    
    HD63701V0_M6 HD63701V0_M6 (
@@ -39,7 +40,7 @@ module ikbd_tb (
                               .PI1(pi1),
 			      .PO1(),
 			      .PI2(pi2),
-			      .PO2()
+			      .PO2(po2)
 	      );
    
 endmodule;
