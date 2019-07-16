@@ -38,7 +38,7 @@ In this case the IKBD sends its default boot message $f1 after
 ~65ms. Then the testbench sends the $18 command (set fire button
 monitoring) to the IKBD which in turn starts to send button
 reports. At 90ms the testbench "presses fire" which results in
-the appropriate but change in the IKBDs report. At 100ms the
+the appropriate bit changes in the IKBDs report. At 100ms the
 fire button is released again.
 
 More test patterns can be selected in ```tb/ikbd_tb.cpp```.
@@ -51,7 +51,7 @@ commands and replies to them.
 
 ## Current work
 
-The [HD63701](https://github.com/freecores/hd63701) does not implement
+The [HD63701](https://github.com/thasega/HD63701) does not implement
 single chip mode (mode 7) which is the mode used by the IKBD. It was
 thus lacking some of the ports to scan the matrix and the serial port.
 

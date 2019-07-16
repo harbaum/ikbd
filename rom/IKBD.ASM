@@ -218,6 +218,7 @@ f180	44		lsra
 f181	24 e8		bcc  e8 (F16B)
 f183	7e f8 a2	jmp f8a2
 
+;; this is used during "joystick monitoring" and "interrogate joystick"
 f186	96 03		ldaa 03			; read p2 (DR2)
 f188	91 03		cmpa 03                 ; read again an compare
 f18a	26 fa		bne  fa (F186)		; repeat while not equal
@@ -226,7 +227,7 @@ f18e	d6 9d		ldab 9d
 f190	27 15		beq  15 (F1A7)
 f192	c1 0a		cmpb #0a
 f194	25 1a		bcs  1a (F1B0)
-f196	5f		clrb			;B=0
+f196	5f		clrb			; B=0
 f197	d7 9d		stab 9d
 f199	97 c5		staa c5
 f19b	16		tab
@@ -240,30 +241,31 @@ f1a7	91 9b		cmpa 9b
 f1a9	27 05		beq  05 (F1B0)
 f1ab	97 9c		staa 9c
 f1ad	7c 00 9d	inc 009d
-f1b0	96 07		ldaa 07              read mouse/joystick
-f1b2	91 07		cmpa 07              read again to see change
-f1b4	26 fa		bne  fa (F1B0)       loop while it is changing
+f1b0	96 07		ldaa 07			; read mouse/joystick
+f1b2	91 07		cmpa 07              	; read again to see change
+f1b4	26 fa		bne  fa (F1B0)       	; loop while it is changing
 f1b6	39		rts
 
-f1b7	86 01		ldaa #01
-f1b9	97 03		staa 03				;DR2		buttons =1
-f1bb	dc 8c		ldd  8c				;$8C
-f1bd	43		coma			;NOT A
-f1be	53		comb			;NOT B
-f1bf	d7 06		stab 06				;DR3		keyboard rows
+; this is used for joystick interrogate
+f1b7	86 01		ldaa #01		; enable mouse/joy0 direction input via 74LS03
+f1b9	97 03		staa 03			; this only toggles P2.0
+f1bb	dc 8c		ldd  8c			; $8C
+f1bd	43		coma			; NOT A
+f1be	53		comb			; NOT B
+f1bf	d7 06		stab 06			; DR3		keyboard rows
 f1c1	c6 ff		ldab #ff
-f1c3	d7 05		stab 05				;DDR4		output mode
-f1c5	97 07		staa 07				;DR4 
-f1c7	96 02		ldaa 02				;DR1		read keyboard
+f1c3	d7 05		stab 05			; DDR4		output mode
+f1c5	97 07		staa 07			; DR4 
+f1c7	96 02		ldaa 02			; DR1		read keyboard
 f1c9	91 02		cmpa 02
 f1cb	26 fa		bne  fa (F1C7)
 f1cd	ce ff ff	ldx  #ffff
-f1d0	df 06		stx  06				;DR3
-f1d2	c6 fe		ldab #fe
-f1d4	d7 03		stab 03
-f1d6	5f		clrb			;B=0
+f1d0	df 06		stx  06			; DR3
+f1d2	c6 fe		ldab #fe		; disable -"-
+f1d4	d7 03		stab 03			; DR2
+f1d6	5f		clrb			; B=0
 f1d7	d7 05		stab 05
-f1d9	43		coma			;NOT A
+f1d9	43		coma			; NOT A
 f1da	26 07		bne  07 (F1E3)
 f1dc	d6 89		ldab 89
 f1de	26 03		bne  03 (F1E3)
@@ -1467,7 +1469,7 @@ fb39	96 c9		ldaa c9				;$C9 Mouse mode
 fb3b	85 02		bita #02			;
 fb3d	26 1d		bne  1d (FB5C)			;bit1 (monitoring) set -> leave
 fb3f	4d		tsta				;0?
-fb40	2a 1a		bpl  1a (FB5C)			;yes: leave
+fb40	2a 1a		bpl  1a (FB5C)			;not negative (bit 7 unset): leave
 fb42	85 20		bita #20			;bit5? (Absolute mouse on)
 fb44	27 16		beq  16 (FB5C)			;no: leave
 fb46	0f		sei				;disable interrupts

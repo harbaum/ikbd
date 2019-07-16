@@ -17,8 +17,26 @@ unsigned char cmd_set_absolute_mouse_positioning[] = {
 unsigned char cmd_interrogate_mouse_position[] = { 1, 0x0D };
 unsigned char cmd_request_mouse_enable[] = { 1, 0x92 };
 
+// == Port usage ==
+// P20: Output: 1 when mouse/joy0 direction is to be read, 0 for keyboard scan
+// P21: Input: Left mouse button and joystick 0 fire button
+// P22: Input: Right mouse button and joystick 1 fire button
+// P23: SCI RX
+// P24: SCI TX
+
+// P10-P17: Input: Row data
+// P31-P37: Output: Column select
+// P40-P47: Output: Column select
+
+// P30: Unused, in some schematics used as a caps lock led output
+
+// P1 usage for mouse/joystick directions:
+// P10-0U, P11-0D, P12-0L, P13-0R, P14-1U, P15-1D, P16-1L, P17-1R
+// P3/P4 must be 0xff to avoid conflicts with pressed keys
+
+unsigned char cmd_set_joystick_interrogation_mode[] = { 1, 0x15 };
 unsigned char cmd_interrogate_joystick[] = { 1, 0x16 };
-unsigned char cmd_set_joystick_monitoring[] = { 2, 0x17, 10 };
+unsigned char cmd_set_joystick_monitoring[] = { 2, 0x17, 10 };  // 100ms
 unsigned char cmd_set_fire_button_monitoring[] = { 1, 0x18 };
 
 #define TSER  0
@@ -31,9 +49,14 @@ unsigned char cmd_set_fire_button_monitoring[] = { 1, 0x18 };
 #define IO_CLR_BIT(a,b)   2, IO_PORT(a,b)
 #define IO_WAIT(a)        3, a
 
-unsigned char io_joy_fire_on[] = { IO_CLR_BIT(2, 2), IO_DONE };
-unsigned char io_joy_fire_off[] = { IO_SET_BIT(2, 2), IO_DONE };
-unsigned char io_joy_fire_on_off[] = {
+unsigned char io_joy0_fire_on[] = { IO_CLR_BIT(2, 1), IO_DONE };
+unsigned char io_joy0_fire_off[] = { IO_SET_BIT(2, 1), IO_DONE };
+unsigned char io_joy0_fire_on_off[] = {
+  IO_CLR_BIT(2, 1), IO_WAIT(10), IO_SET_BIT(2, 1), IO_DONE };
+
+unsigned char io_joy1_fire_on[] = { IO_CLR_BIT(2, 2), IO_DONE };
+unsigned char io_joy1_fire_off[] = { IO_SET_BIT(2, 2), IO_DONE };
+unsigned char io_joy1_fire_on_off[] = {
   IO_CLR_BIT(2, 2), IO_WAIT(10), IO_SET_BIT(2, 2), IO_DONE };
 
 // ========= events to be generated during simulation =========
@@ -46,46 +69,64 @@ struct {
 } events[] = {
 #if 0 // test reset only
 #define RUNTIME_MS 200
-  { 80, TSER, cmd_reset },
-  // TODO: Reply after reset ~65ms, docs indicate 300ms
+  {   80, TTEXT, (unsigned char*)"Reset" },  
+  {   80, TSER, cmd_reset },
+  // Reply after reset ~65ms, docs indicate 300ms
 #endif
 #if 0 // set/get time
 #define RUNTIME_MS 2500
-  { 80,   TSER, cmd_set_time },
-  { 100,  TSER, cmd_get_time },  // should return same time as set
-  { 1100, TSER, cmd_get_time },  // should return 1 sec advanced
-  { 2100, TSER, cmd_get_time },  // should return 2 secs advanced
+  {   80, TTEXT, (unsigned char*)"Set/get time" },  
+  {   80,  TSER, cmd_set_time },
+  {  100,  TSER, cmd_get_time },  // should return same time as set
+  { 1100,  TSER, cmd_get_time },  // should return 1 sec advanced
+  { 2100,  TSER, cmd_get_time },  // should return 2 secs advanced
 #endif
-#if 0 // interrogate mouse position
+#if 1 // interrogate mouse position
 #define RUNTIME_MS 200
-  { 80,  TSER, cmd_request_mouse_mode },     // reply: mouse is in relative mode
-  { 100, TSER, cmd_set_absolute_mouse_positioning },
-  { 120, TSER, cmd_request_mouse_enable },   // reply: mouse is in absolute mode
-  { 140, TSER, cmd_interrogate_mouse_position },
-  // TODO: No reply?
+  {   80, TTEXT, (unsigned char*)"Interrogate mouse" },  
+  {   80,  TSER, cmd_request_mouse_mode },
+  // reply: mouse is in relative mode
+  {  100,  TSER, cmd_set_absolute_mouse_positioning },
+  {  120,  TSER, cmd_request_mouse_enable },
+  {  140,  TSER, cmd_request_mouse_mode },
+  // reply: mouse is in absolute mode
+  {  160,  TSER, cmd_interrogate_mouse_position },
+  // reply: $f7,$00,$00,$00,$00,$00
 #endif
 #if 0 // request joystick information
 #define RUNTIME_MS 200
-  { 80,  TTEXT, (unsigned char*)"Request joystick information" },
-  { 80, TSER, cmd_interrogate_joystick },
+  {   80, TTEXT, (unsigned char*)"Interrogate joystick" },
+  {   80,  TSER, cmd_set_joystick_interrogation_mode },
+  {   90,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$00
-  { 90, TWIRE, io_joy_fire_on },
-  { 100, TSER, cmd_interrogate_joystick },
-  // TODO: reply also: $fd,$00,$00 ???
-  { 110, TWIRE, io_joy_fire_off },
+  {  100, TTEXT, (unsigned char*)"Press fire 0" },
+  {  100, TWIRE, io_joy0_fire_on },
+  {  120,  TSER, cmd_interrogate_joystick },
+  // reply: $fd,$80,$00
+  {  130, TTEXT, (unsigned char*)"Release fire 0, press fire 1" },
+  {  130, TWIRE, io_joy1_fire_on },
+  {  130, TWIRE, io_joy0_fire_off },
+  {  150,  TSER, cmd_interrogate_joystick },
+  // reply: $fd,$00,$80
+  {  160, TTEXT, (unsigned char*)"Release fire 1" },
+  {  160, TWIRE, io_joy1_fire_off },
+  {  180,  TSER, cmd_interrogate_joystick },
+  // reply: $fd,$00,$00
 #endif
 #if 0 // joystick monitoring
-#define RUNTIME_MS 120
-  { 80, TSER, cmd_set_joystick_monitoring },
-  { 90, TWIRE, io_joy_fire_on_off },
+#define RUNTIME_MS 1000
+  {   80, TTEXT, (unsigned char*)"Test joystick monitoring" },
+  {   80,  TSER, cmd_set_joystick_monitoring },
+  {  400, TWIRE, io_joy1_fire_on },
+  {  600, TWIRE, io_joy1_fire_off },
 #endif
-#if 1 // fire button monitoring
+#if 0 // fire button monitoring
 #define RUNTIME_MS 110
-  { 80,  TTEXT, (unsigned char*)"Test fire button monitoring" },
-  { 80, TSER, cmd_set_fire_button_monitoring },
-  { 90, TWIRE, io_joy_fire_on_off },
+  {   80, TTEXT, (unsigned char*)"Test fire button monitoring" },
+  {   80,  TSER, cmd_set_fire_button_monitoring },
+  {   90, TWIRE, io_joy1_fire_on_off },
 #endif
-  { 0, 0, NULL }
+  {    0,     0, NULL }
 };
 
 // serial signal generation
@@ -173,47 +214,45 @@ void serial_start(unsigned char *msg) {
   sc = 0;
   sp = msg;
   st = 0;
+  serial_do();
 }
 
 void wire_do() {
-  if(!wp) return;
-  if(tickcount < wt) return;
-
-  wt = tickcount + 1000;   // 1us
-  
-  switch(wp[wc]) {
-  case 1: {  // set
-    int port = wp[wc+1]>>4;
-    int bit  = wp[wc+1]&15;
-    printf("@%.2fµs SET(%d,%d)\n", tickcount/1000.0, port, bit);
-    P[port-1] |= (1<<bit);    
-    if(port == 1) tb->pi1 = P[0];
-    if(port == 2) tb->pi2 = P[1];
-    wc+=2;
-  } break;
-  case 2: {  // clear
-    int port = wp[wc+1]>>4;
-    int bit  = wp[wc+1]&15;
-    printf("@%.2fµs CLR(%d,%d)\n", tickcount/1000.0, port, bit);
-    P[port-1] &= ~(1<<bit);    
-    if(port == 1) tb->pi1 = P[0];
-    if(port == 2) tb->pi2 = P[1];
-    wc+=2;
-  } break;
-  case 3:  // wait
-    // printf("@%.2fµs WAIT(%dms)\n", tickcount/1000.0, wp[wc+1]);
-    wt = tickcount + 1000000*wp[wc+1];   // X us
-    wc+=2;
-    break;
-
-  default:
-    break;
-  }
-  
-  // DONE ?  
-  if(!wp[wc]) {
-    // printf("@%.2fµs DONE\n", tickcount/1000.0);
-    wp = NULL;
+  while(wp && tickcount >= wt) {
+    switch(wp[wc]) {
+    case 1: {  // set
+      int port = wp[wc+1]>>4;
+      int bit  = wp[wc+1]&15;
+      printf("@%.2fµs SET(%d,%d)\n", tickcount/1000.0, port, bit);
+      P[port-1] |= (1<<bit);    
+      if(port == 1) tb->pi1 = P[0];
+      if(port == 2) tb->pi2 = P[1];
+      wc+=2;
+    } break;
+    case 2: {  // clear
+      int port = wp[wc+1]>>4;
+      int bit  = wp[wc+1]&15;
+      printf("@%.2fµs CLR(%d,%d)\n", tickcount/1000.0, port, bit);
+      P[port-1] &= ~(1<<bit);    
+      if(port == 1) tb->pi1 = P[0];
+      if(port == 2) tb->pi2 = P[1];
+      wc+=2;
+    } break;
+    case 3:  // wait
+      // printf("@%.2fµs WAIT(%dms)\n", tickcount/1000.0, wp[wc+1]);
+      wt = tickcount + 1000000*wp[wc+1];   // X us
+      wc+=2;
+      break;
+      
+    default:
+      break;
+    }
+    
+    // DONE ?  
+    if(!wp[wc]) {
+      // printf("@%.2fµs DONE\n", tickcount/1000.0);
+      wp = NULL;
+    }
   }
 }
   
@@ -221,6 +260,7 @@ void wire_start(unsigned char *msg) {
   wc = 0;
   wp = msg;
   wt = 0;
+  wire_do();
 }
 
 void tick(int c) {
@@ -229,6 +269,9 @@ void tick(int c) {
   trace->dump(tickcount);
   tickcount += 250; // 2*250ns/cycle -> 2MHz, matching a real 6301@4MHz
 
+  wire_do();
+  serial_do();
+  
   // check if an event is supposed to start
   for(char i=0;events[i].time;i++) {
     if(events[i].time * 1000000 == tickcount) {
@@ -241,8 +284,6 @@ void tick(int c) {
     }
   }
 
-  serial_do();
-  wire_do();
 }
 
 void ticks(int c) {

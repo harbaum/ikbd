@@ -23,7 +23,10 @@ module ikbd_tb (
 		input irq,
 		input [7:0] pi1,
 		input [4:0] pi2,
-		output [4:0] po2
+		output [7:0] po1,
+		output [4:0] po2,
+		output [7:0] po3,
+		output [7:0] po4
 		);
    
    HD63701V0_M6 HD63701V0_M6 (
@@ -33,12 +36,12 @@ module ikbd_tb (
 			      .IRQ(irq),
                               
 			      .RW(),
-			      .AD(),
+			      .AD({po4, po3}),
 			      .DO(),
 			      .DI(),
 			      
                               .PI1(pi1),
-			      .PO1(),
+			      .PO1(po1),
 			      .PI2(pi2),
 			      .PO2(po2)
 	      );
