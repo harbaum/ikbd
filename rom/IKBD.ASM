@@ -212,16 +212,16 @@ f173	85 20		bita #20
 f175	27 c3		beq  c3 (F13A)
 f177	85 03		bita #03
 f179	27 f0		beq  f0 (F16B)
-f17b	7b 08 cb	tim 08cb
+f17b	7b 08 cb	tim #08,cb
 f17e	26 ba		bne  ba (F13A)
 f180	44		lsra
 f181	24 e8		bcc  e8 (F16B)
 f183	7e f8 a2	jmp f8a2
 
-f186	96 03		ldaa 03			;DR2
-f188	91 03		cmpa 03
-f18a	26 fa		bne  fa (F186)		;
-f18c	84 06		anda #06		;
+f186	96 03		ldaa 03			; read p2 (DR2)
+f188	91 03		cmpa 03                 ; read again an compare
+f18a	26 fa		bne  fa (F186)		; repeat while not equal
+f18c	84 06		anda #06		; mask p21 and p22 (fire j0 and j1)
 f18e	d6 9d		ldab 9d
 f190	27 15		beq  15 (F1A7)
 f192	c1 0a		cmpb #0a
@@ -1116,19 +1116,21 @@ f89a	5f		clrb			;B=0
 f89b	bd fd 34	jsr  fd34			;send
 f89e	0e		cli				;enable interrupts
 f89f	7e f1 3a	jmp f13a
-f8a2	7b 10 cb	tim 10cb
+
+;; this is used in the fire button monitoring mode
+f8a2	7b 10 cb	tim #10,cb
 f8a5	26 2a		bne  2a (F8D1)
 f8a7	d6 d7		ldab d7
 f8a9	2a 26		bpl  26 (F8D1)
-f8ab	86 16		ldaa #16
+f8ab	86 16		ldaa #16			; 22 times ...
 f8ad	4a		deca
-f8ae	26 fd		bne  fd (F8AD)
-f8b0	96 03		ldaa 03
-f8b2	91 03		cmpa 03
-f8b4	26 fa		bne  fa (F8B0)
-f8b6	85 04		bita #04
-f8b8	27 01		beq  01 (F8BB)
-f8ba	6d 0d		tst 0d,x
+f8ae	26 fd		bne  fd (F8AD)			; ... loop -> ~88us
+f8b0	96 03		ldaa 03				; read p2 (dr2)
+f8b2	91 03		cmpa 03				; read again an compare
+f8b4	26 fa		bne  fa (F8B0)			; repeat until equal
+f8b6	85 04		bita #04                        ; test TX??
+f8b8	27 01		beq  01 (F8BB)			; ???
+f8ba	6d 0d		tst 0d,x                        ; 0d is SEC
 f8bc	96 a4		ldaa a4
 f8be	49		rola
 f8bf	97 a4		staa a4
@@ -1833,9 +1835,9 @@ fda8	cb 13		addb #13
 fdaa	d1 0c		cmpb 0c
 fdac	26 01		bne  01 (FDAF)
 fdae	01		nop
-fdaf	dc 0b		ldd  0b
-fdb1	c3 03 e8	addd #03e8
-fdb4	dd 0b		std  0b
+fdaf	dc 0b		ldd  0b				; read OCR
+fdb1	c3 03 e8	addd #03e8			; + 1000 -> generate 1khz irq
+fdb4	dd 0b		std  0b				; write OCR
 fdb6	96 83		ldaa 83
 fdb8	26 03		bne  03 (FDBD)
 fdba	7e fe 29	jmp fe29

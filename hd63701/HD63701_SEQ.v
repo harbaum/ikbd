@@ -54,24 +54,10 @@ wire [7:0] vINT = fINT[3] ? `vaNMI :    // NMI     $fc
 
 function [3:0] INTUpd;
 input [3:0] n;
-	case(n)
-	4'b0000: INTUpd = 4'b0000;
-	4'b0001: INTUpd = 4'b0000;
-	4'b0010: INTUpd = 4'b0000;
-	4'b0011: INTUpd = 4'b0001;
-	4'b0100: INTUpd = 4'b0000;
-	4'b0101: INTUpd = 4'b0001;
-	4'b0110: INTUpd = 4'b0010;
-	4'b0111: INTUpd = 4'b0011;
-	4'b1000: INTUpd = 4'b0000;
-	4'b1001: INTUpd = 4'b0001;
-	4'b1010: INTUpd = 4'b0010;
-	4'b1011: INTUpd = 4'b0011;
-	4'b1100: INTUpd = 4'b0100;
-	4'b1101: INTUpd = 4'b0101;
-	4'b1110: INTUpd = 4'b0110;
-	4'b1111: INTUpd = 4'b0111;
-	endcase
+   INTUpd = n[3]?{1'b0,n[2:0]}:
+	    n[2]?{2'b00,n[1:0]}:
+	    n[1]?{3'b000,n[0]}:
+	    4'b0000;
 endfunction
 
 
@@ -89,12 +75,6 @@ always @( posedge CLK or posedge RST ) begin
 		mcside <= 0;
 	end
 	else begin
-
-		// Capture Interrupt signal edge
-		if ((pNMI^NMI)&NMI)   fINT[3] <= 1'b1; pNMI <= NMI;
-		if ((pIRQ^IRQ)&IRQ)   fINT[2] <= 1'b1; pIRQ <= IRQ;
-		if ((pIR2^IRQ2)&IRQ2) fINT[1] <= 1'b1; pIR2 <= IRQ2;
-		if ((pIR0^IRQ0)&IRQ0) fINT[0] <= 1'b1; pIR0 <= IRQ0;
 
 
 		case (PHASE)
@@ -149,7 +129,14 @@ always @( posedge CLK or posedge RST ) begin
 		`phHALT: $stop;
 
 		default:;
-		endcase
+		endcase // case (PHASE)
+	   
+		// Capture Interrupt signal edge
+		if ((pNMI^NMI)&NMI)   fINT[3] <= 1'b1; pNMI <= NMI;
+		if ((pIRQ^IRQ)&IRQ)   fINT[2] <= 1'b1; pIRQ <= IRQ;
+		if ((pIR2^IRQ2)&IRQ2) fINT[1] <= 1'b1; pIR2 <= IRQ2;
+		if ((pIR0^IRQ0)&IRQ0) fINT[0] <= 1'b1; pIR0 <= IRQ0;
+
 	end
 end
 

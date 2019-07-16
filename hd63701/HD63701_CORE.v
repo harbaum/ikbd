@@ -18,26 +18,15 @@ module HD63701_Core
 	output 				RW,
 	output 	[15:0]	AD,
 	output	 [7:0]	DO,
-	input     [7:0]	DI,
-
-  // for DEBUG
-	output				CLKo,
-	output `mcwidth	MC,
-	output   [15:0]	REG_D,
-	output   [15:0]	REG_X,
-	output	[15:0]	REG_S,
-	output	 [5:0]	REG_C
+	input     [7:0]	DI
 );
 
 reg CLK = 0;
 always @( negedge CLKx2 ) CLK <= ~CLK;
-assign CLKo = CLK;
 
 wire `mcwidth mcode;
 wire [7:0] 	  vect;
 wire		  	  inte, fncu;
-
-assign MC = mcode;
 
 HD63701_SEQ   SEQ(.CLK(CLK),.RST(RST),
 						.NMI(NMI),.IRQ(IRQ),.IRQ2(IRQ2),.IRQ2V(IRQ2V),.IRQ0(IRQ0),
@@ -45,8 +34,7 @@ HD63701_SEQ   SEQ(.CLK(CLK),.RST(RST),
 						.mcout(mcode),.vect(vect),.inte(inte),.fncu(fncu));
 
 HD63701_EXEC EXEC(.CLK(CLK),.RST(RST),.DI(DI),.AD(AD),.RW(RW),.DO(DO),
-						.mcode(mcode),.vect(vect),.inte(inte),.fncu(fncu),
-						.REG_D(REG_D),.REG_X(REG_X),.REG_S(REG_S),.REG_C(REG_C) );
+						.mcode(mcode),.vect(vect),.inte(inte),.fncu(fncu));
 
 endmodule
 

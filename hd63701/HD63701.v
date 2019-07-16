@@ -26,11 +26,6 @@ module HD63701V0_M6
 assign PO2 = te?{txd,PO2I[3:0]}:PO2I;      
 wire [4:0] 	  PO2I;
       
-// trigger on certain rom addresses
-wire TRG = ADI == 16'hf914;
-wire TRG_IRQ0 = ADI == 16'hfee2;
-wire TRG_IRQ2 = ADI == 16'hfd9d;
-
 wire [15:0] ADI;
 wire [2:0] PC;   
 wire [7:0] PO3;   
@@ -193,7 +188,7 @@ always @( posedge mcu_clx2 or posedge mcu_rst ) begin
    else begin
       if (mcu_wr) begin
 	 if (mcu_ad==16'h0) DDR1 <= mcu_do;
-	 if (mcu_ad==16'h1) DDR2 <= mcu_do;
+	 if (mcu_ad==16'h1) DDR2 <= mcu_do[4:0];
 	 if (mcu_ad==16'h2) PO1R <= mcu_do;
 	 if (mcu_ad==16'h3) PO2R <= mcu_do[4:0];
 	 if (mcu_ad==16'h4) DDR3 <= mcu_do;
@@ -202,14 +197,16 @@ always @( posedge mcu_clx2 or posedge mcu_rst ) begin
 	 if (mcu_ad==16'h7) PO4R <= mcu_do;
       end
    end
-end
+end // always @ ( posedge mcu_clx2 or posedge mcu_rst )
+   
+wire TRG_PI2 = (mcu_ad==16'h3);
    
 // IO from 0x0000 to 0x0007
 assign en_io = (mcu_ad[15:3] == 13'h0);
 // only addresses 2 and 3 return data
 assign iod = 
 	     (mcu_ad==16'h0) ? DDR1 : 
-	     (mcu_ad==16'h1) ? DDR2 : 
+	     (mcu_ad==16'h1) ? {3'hF,DDR2} : 
 	     (mcu_ad==16'h2) ? PI1 : 
 	     (mcu_ad==16'h3) ? {3'hF,PI2}:
 	     (mcu_ad==16'h4) ? DDR3 : 
@@ -243,13 +240,14 @@ module HD63701_SCI
 
    reg 	      RDRF = 1'b0;  // receive data register full  
    reg 	      TDRE = 1'b1;  // transmit data register empty
+   reg 	      ORFE = 1'b0;  // over run framing error
    
    reg 	      last_rx = 1'b0;
 
    reg [8:0]  rxsr;   // receive shift register    
-   reg [8:0]  rxcnt;  // 9 bit receive counter
+   reg [7:0]  rxcnt;  // 9 bit receive counter
    
-   reg [8:0]  txcnt;  // 9 bit transmit counter
+   reg [7:0]  txcnt;  // 9 bit transmit counter
    reg [8:0]  txsr;
       
    always @( posedge mcu_clx2 or posedge mcu_rst ) begin
@@ -259,36 +257,45 @@ module HD63701_SCI
 	 RDR   <= 8'h00;
 	 TDR   <= 8'h00;
 	 last_rx <= 1'b1;
-	 rxcnt <= 9'h000;
-	 txcnt <= 9'h000;
+	 rxcnt <= 8'h00;
+	 txcnt <= 8'h00;
 	 rxsr <= 9'h000;
 	 txsr <= 9'h1ff;
 	 tx <= 1'b1;
       end
       else begin
-	 // sync rx clock on any data edge
-	 last_rx <= rx;
-	 rxcnt <= rxcnt + 1;	 
-	 if(last_rx != rx) begin
-	    rxcnt <= 9'h000;	    
-	 end
 
-	 // sample serial bit in the middle of the 512 clock
-	 // cycle @ 7812.5 bit/s and shift it into rx buffer
-	 if(rxcnt == 9'd256) begin
-	    rxsr <= { !rx, rxsr[8:1] };
-	    // a full byte has been received whenever the
-	    // lowest bit would become '1' due to the start bit
-	    // and ~rx must be 0 due to stop bit
-	    if(rxsr[0] == 1'b1 && ~rx == 1'b0) begin
-	       rxsr <= 9'h000;
-	       RDR <= rxsr[8:1];
-	       RDRF <= 1'b1;
+	 if(re) begin
+	 
+	    // sync rx clock on first falling data (start bit)
+	    last_rx <= rx;
+	    rxcnt <= rxcnt + 1;	 
+	    if((rxsr == 9'h000) && last_rx && !rx)
+	       rxcnt <= 8'h00;	    
+
+	    // sample serial bit in the middle of the 256 clock
+	    // cycle @ 7812.5 bit/s and shift it into rx buffer
+	    if(rxcnt == 8'd128) begin
+	       rxsr <= { !rx, rxsr[8:1] };
+	       // a full byte has been received whenever the
+	       // lowest bit would become '1' due to the start bit.
+	       // ~rx must be 0 due to stop bit, otherwise this
+	       // is a framing error
+	       if(rxsr[0] == 1'b1) begin
+		  if(~rx == 1'b0) begin
+		     rxsr <= 9'h000;
+		     RDR <= rxsr[8:1];
+		     if (RDRF == 1'b1) ORFE <= 1'b1;		     
+		     RDRF <= 1'b1;
+		  end else
+		     ORFE <= 1'b1;
+	       end
 	    end
 	 end
 	 
-	 if(en_sci && !mcu_wr && (mcu_ad==16'h12)) begin
-	    RDRF <= 1'b0;	    
+	 if(en_sci && !mcu_wr) begin
+	    if (mcu_ad==16'h11) ORFE <= 1'b0;	  
+	    if (mcu_ad==16'h12) RDRF <= 1'b0;	  
 	 end
 	 
 	 if (mcu_wr) begin
@@ -301,11 +308,11 @@ module HD63701_SCI
 	 end
 
 	 txcnt <= txcnt + 1;
-	 if(txcnt == 9'h1ff) begin	 
+	 if(txcnt == 8'hff) begin
 	    // if txsr == 0x1ff then no transmission is in progress
 	    if((txsr == 9'h1ff) && !TDRE) begin
 	       TDRE <= 1'b1;
-	       txcnt <= 9'h000;       // start tx bit timer
+	       txcnt <= 8'h00;        // start tx bit timer
 	       txsr <= { 1'b0, TDR }; // data incl stop bit
 	       tx <= 1'b0;	      // send start bit
 	    end
@@ -323,11 +330,14 @@ module HD63701_SCI
    // we always return 0
    wire [7:0] TRCSR_O = { RDRF, TRCSR[6], TDRE, TRCSR[4:1], 1'b0 };
 
-   assign te = TRCSR[1];   // transmitter enable
+   wire       wu = TRCSR[0];   // wake up
+   assign     te = TRCSR[1];   // transmitter enable
+   wire       tie = TRCSR[2];  // transmitter interrupt enable
+   wire       re = TRCSR[3];   // receiver enable
+   wire       rie = TRCSR[4];  // receiver interrupt enable
 
    // interrupt on receive or transmit
-   assign mcu_irq0 = (TRCSR[4] && RDRF) ||
-		     (TRCSR[2] && TDRE); 
+   assign mcu_irq0 = (rie && RDRF) || (tie && TDRE); 
    
    assign en_sci = (mcu_ad[15:2] == 14'h004);
    assign iod = (mcu_ad==16'h10) ? RMCR :

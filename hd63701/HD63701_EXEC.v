@@ -18,12 +18,7 @@ module HD63701_EXEC
 	input		`mcwidth		mcode,
 	output reg	[7:0]		vect,
 	output					inte,
-	input						fncu,
-	
-	output	[15:0]		REG_D,
-	output	[15:0]		REG_X,
-	output	[15:0]		REG_S,
-	output	 [5:0]		REG_C
+	input						fncu
 );
 
 // MicroCode Format
@@ -51,6 +46,11 @@ reg	[5:0]	rC;
 `define rU	rT[15:8]
 `define rV	rT[7:0]
 
+
+// trigger on certain rom addresses
+wire TRG = rP == 16'hfb39;
+wire TRG_IRQ0 = rP == 16'hfee2;
+wire TRG_IRQ2 = rP == 16'hfd9d;
 
 // ALU
 wire IsCCR   = (mcop==`mcCCB)|(mcop==`mcSCB);
@@ -178,12 +178,6 @@ always @( negedge CLK or posedge RWRES ) begin
 end
 
 assign inte = ~rC[4];
-
-
-assign REG_D = rD;
-assign REG_X = rX;
-assign REG_S = rS;
-assign REG_C = rC;
 
 endmodule
 
