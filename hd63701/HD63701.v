@@ -15,26 +15,27 @@ module HD63701V0_M6
  output [7:0]  DO, // ~AS ? {PO3}
  input [7:0]   DI, //       {PI3}
 
+ input [7:0]   PI4, //
+ 
  input [7:0]   PI1, // Port1 IN
  output [7:0]  PO1, //       OUT
 
  input [4:0]   PI2, // Port2 IN
- output [4:0]  PO2  //       OUT
+ output [7:0]  PO2  //       OUT
 );
 
 // map sci tx onto PO3 if transmitter is enabled
-assign PO2 = te?{txd,PO2I[3:0]}:PO2I;      
-wire [4:0] 	  PO2I;
+assign PO2 = te?{PO2I[7:5],txd,PO2I[3:0]}:PO2I;      
+wire [7:0] 	  PO2I;
       
 wire [15:0] ADI;
-wire [2:0] PC;   
 wire [7:0] PO3;   
 wire [7:0] PO4;   
 
 // Multiplex PO3 and PO4 onto external AD port in mode 7
-assign AD = (PC == 3'b111)?{ PO4, PO3 }:ADI;  
+assign AD = (PO2I[7:5] == 3'b111)?{ PO4, PO3 }:ADI;  
    
-// Built-In Instruction ROM TODO: include mode (PC) here
+// Built-In Instruction ROM TODO: include mode (POI[7:5]) here
 wire en_birom = (ADI[15:12]==4'b1111);			// $F000-$FFFF
 wire [7:0] biromd;
 MCU_BIROM irom( CLKx2, ADI[11:0], biromd );
@@ -49,7 +50,7 @@ HD63701_BIRAM biram( CLKx2, ADI, RW, DO, en_biram, biramd );
 // Built-In I/O Ports
 wire		  en_biio;
 wire [7:0] biiod;
-HD63701_IOPort iopt( RST, CLKx2, ADI, RW, DO, en_biio, biiod, PI1, PI2, PC, PO1, PO2I, PO3, PO4 );
+HD63701_IOPort iopt( RST, CLKx2, ADI, RW, DO, en_biio, biiod, PI1, PI2, DI, PI4, PO1, PO2I, PO3, PO4 );
 
 
 // Built-In Serial Communication Hardware
@@ -150,16 +151,17 @@ module HD63701_IOPort
 	
  input [7:0] 	  PI1,
  input [4:0] 	  PI2,
+ input [7:0] 	  PI3,
+ input [7:0] 	  PI4,
 
- output reg [2:0] PC,
  output [7:0] 	  PO1,
- output [4:0] 	  PO2,
+ output [7:0] 	  PO2,
  output [7:0] 	  PO3,
  output [7:0] 	  PO4
 );
 
    assign PO1 = (~DDR1) | PO1R;
-   assign PO2 = (~DDR2) | PO2R;
+   assign PO2 = ({3'b000, ~DDR2}) | PO2R;
    assign PO3 = (~DDR3) | PO3R;
    assign PO4 = (~DDR4) | PO4R;
    
@@ -169,28 +171,25 @@ module HD63701_IOPort
    reg [7:0] 	  DDR4;
    
    reg [7:0] 	  PO1R;   
-   reg [4:0] 	  PO2R;
+   reg [7:0] 	  PO2R;
    reg [7:0] 	  PO3R;   
    reg [7:0] 	  PO4R;
   
 always @( posedge mcu_clx2 or posedge mcu_rst ) begin
    if (mcu_rst) begin
-      PC  <= PI2[2:0];
       DDR1 <= 8'h00;
       DDR2 <= 5'h00;      
       DDR3 <= 8'h00;
       DDR4 <= 8'h00;      
-      PO1R <= 8'hFF;
-      PO2R <= 5'h1F;
-      PO3R <= 8'hFF;
-      PO4R <= 8'hFF;
+      PO2R[7:5] <= PI2[2:0];
+      // other output registers are undefined after reset
    end
    else begin
       if (mcu_wr) begin
 	 if (mcu_ad==16'h0) DDR1 <= mcu_do;
 	 if (mcu_ad==16'h1) DDR2 <= mcu_do[4:0];
 	 if (mcu_ad==16'h2) PO1R <= mcu_do;
-	 if (mcu_ad==16'h3) PO2R <= mcu_do[4:0];
+	 if (mcu_ad==16'h3) PO2R[4:0] <= mcu_do[4:0];
 	 if (mcu_ad==16'h4) DDR3 <= mcu_do;
 	 if (mcu_ad==16'h5) DDR4 <= mcu_do;
 	 if (mcu_ad==16'h6) PO3R <= mcu_do;
@@ -211,8 +210,8 @@ assign iod =
 	     (mcu_ad==16'h3) ? {3'hF,PI2}:
 	     (mcu_ad==16'h4) ? DDR3 : 
 	     (mcu_ad==16'h5) ? DDR4 : 
-	     (mcu_ad==16'h6) ? 8'hff :  // no PI3 yet
-	     8'hff;                     // no PI4 yet
+	     (mcu_ad==16'h6) ? PI3 :
+	     PI4;
 
 endmodule
 

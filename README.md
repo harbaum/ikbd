@@ -2,7 +2,11 @@
 
 This repository contains a verilog implementation of the HD6301
 running the rom of the Atari ST ikbd within a verilator environment.
-A reset command is being sent to the ikbd and it replies with $f1.
+This is based on tje [HD63701](https://github.com/thasega/HD63701)
+project.
+
+The rom being used is from later keyboard revisions which
+use a different approach to select mouse and joystick signals.
 
 To use it enter ```make``` in the tb directory and watch the
 ```ikbd.vcd``` using e.g. gtkwave. Furthermore some events will
@@ -46,14 +50,16 @@ More test patterns can be selected in ```tb/ikbd_tb.cpp```.
 ## Current state
 
 The IKBD boots and passes RAM and ROM tests. It scans the key
-matrix and sends the $f1 reset reply. It receives serial
-commands and replies to them.
+matrix and sends the $f1 reset reply.
+
+Most commands have been tested and keyboard, mouse and joysticks
+work. The internal clock also runs.
+
+The TST and EIM instructions were broken and have been
+fixed in the HD6301 core and some of the internal peripherals
+like the SCI serial interface have been implemented.
 
 ## Current work
 
-The [HD63701](https://github.com/thasega/HD63701) does not implement
-single chip mode (mode 7) which is the mode used by the IKBD. It was
-thus lacking some of the ports to scan the matrix and the serial port.
-
-These ports have been added and the IKBD can communicate over P2.3 and
-P2.4 at 7812.5 bit/s.
+A PS/2 interface to connect to real ps2 keyboards or the
+ps2 emulation internally used by the MIST.

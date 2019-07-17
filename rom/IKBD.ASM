@@ -5,91 +5,92 @@
 ************************************************************
 
 f000	96 88		ldaa 88
-f002	81 aa		cmpa #aa			;init? ($AA = code init OK)
+f002	81 aa		cmpa #aa			; init? ($AA = code init OK)
 f004	27 0a		beq  0a (F010)
-f006	cc 00 80	ldd  #0080			;specify: all RAM must be cleared
+f006	cc 00 80	ldd  #0080			; specify: all RAM must be cleared
 f009	20 09		bra  09 (F014)
 ;wait for activity (WU)
-f00b	7b 01 11	tim 0111			;TRCSR bit1: wakeup (1 = sleeping)
-f00e	26 fb		bne  fb (F00B)			;loop
+f00b	7b 01 11	tim 0111			; TRCSR bit1: wakeup (1 = sleeping)
+f00e	26 fb		bne  fb (F00B)			; loop
 ;RESET (command 80-01 comes here)
-f010	0f		sei				;disable interrupts
-f011	cc 00 89	ldd  #0089			;specify: save clock and init code
-f014	8e 00 ff	lds  #00ff			;stack=$FF
+f010	0f		sei				; disable interrupts
+f011	cc 00 89	ldd  #0089			; specify: save clock and init code
+f014	8e 00 ff	lds  #00ff			; stack=$FF
 f017	4f		clra			;A=0
-f018	97 00		staa 00				;DDR1=0
+f018	97 00		staa 00				; DDR1=0, P1 = input from matrix
 f01a	4c		inca
-f01b	97 03		staa 03				;DR2=1
-f01d	97 01		staa 01				;DDR2=1
+f01b	97 03		staa 03				; DR2=1,
+f01d	97 01		staa 01				; DDR2=1, only P20 is output, others are inputs 
 f01f	ce ff ff	ldx  #ffff
-f022	df 06		stx  06				;DR3=DR4=FF
-f024	df 04		stx  04				;DDR3=DDR4=FF
-f026	86 05		ldaa #05			;$5=b0101 = 4MHz, 7812.5 bits/s
-f028	97 10		staa 10				;write '5' in $10 RMCR
-f02a	86 1a		ldaa #1a			;$1A=Receive Interrupt Enable,Receive Enable,Transmit Enable
-f02c	97 11		staa 11				;write '1A' in $11 TRCSR
-f02e	96 11		ldaa 11				;TRCSR		
-f030	96 12		ldaa 12				;RDR
+f022	df 06		stx  06				; DR3=DR4=FF
+f024	df 04		stx  04				; DDR3=DDR4=FF
+f026	86 05		ldaa #05			; $5=b0101 = 4MHz, 7812.5 bits/s
+f028	97 10		staa 10				; write '5' in $10 RMCR
+f02a	86 1a		ldaa #1a			; $1A=Receive Interrupt Enable,Receive Enable,Transmit Enable
+f02c	97 11		staa 11				; write '1A' in $11 TRCSR
+f02e	96 11		ldaa 11				; TRCSR		
+f030	96 12		ldaa 12				; RDR
 f032	c1 89		cmpb #89
 f034	27 12		beq  12 (F048)
-f036	4f		clra			;A=0
+f036	4f		clra			        ; A=0
 f037	4a		deca
 f038	01		nop
 f039	26 fc		bne  fc (F037)
-f03b	72 01 11	oim 111				;TRCSR
+f03b	72 01 11	oim 111				; TRCSR
 f03e	86 20		ldaa #20
 f040	4a		deca
-f041	26 fd		bne  fd (F040)			;little waiting loop
+f041	26 fd		bne  fd (F040)			; little waiting loop
 ;wait for activity (WU)
-f043	7b 01 11	tim 0111			;TRCSR bit1: wakeup (1 = sleeping)
-f046	26 fb		bne  fb (F043)			;loop
+f043	7b 01 11	tim 0111			; TRCSR bit1: wakeup (1 = sleeping)
+f046	26 fb		bne  fb (F043)			; loop
 ;enable interrupt OCF
 f048	86 08		ldaa #08
-f04a	97 08		staa 08				;TCSR=8
+f04a	97 08		staa 08				; TCSR=8
 ;test RAM
-f04c	86 5a		ldaa #5a			;init RAM loop (with $5A)
+f04c	86 5a		ldaa #5a			; init RAM loop (with $5A)
 f04e	ce 00 00	ldx  #0000
 f051	3a		abx
 f052	a7 00		staa 00,x
 f054	08		inx
 f055	8c 01 00	cpx  #0100
 f058	26 f8		bne  f8 (F052)
-f05a	ce 00 00	ldx  #0000			;read RAM as test
+f05a	ce 00 00	ldx  #0000			; read RAM as test
 f05d	3a		abx
 f05e	a1 00		cmpa 00,x
-f060	26 ea		bne  ea (F04C)			;error: init RAM again
+f060	26 ea		bne  ea (F04C)			; error: init RAM again
 f062	08		inx
 f063	8c 01 00	cpx  #0100
 f066	26 f6		bne  f6 (F05E)
 f068	81 a5		cmpa #a5
-f06a	27 04		beq  04 (F070)			;OK
+f06a	27 04		beq  04 (F070)			; OK
 f06c	86 a5		ldaa #a5
-f06e	20 de		bra  de (F04E)			;do test again
-f070	4f		clra			;A=0
+f06e	20 de		bra  de (F04E)			; do test again
+f070	4f		clra			        ; A=0
 ;test ROM
-f071	ce f0 00	ldx  #f000			;start of ROM
+f071	ce f0 00	ldx  #f000			; start of ROM
 f074	a9 00		adca 00,x
 f076	08		inx
-f077	27 0a		beq  0a (F083)			;all ROM has been read?
-f079	8c ff 6f	cpx  #ff6f			;reached end of code?
+f077	27 0a		beq  0a (F083)			; all ROM has been read?
+f079	8c ff 6f	cpx  #ff6f			; reached end of code?
 f07c	26 f6		bne  f6 (F074)
-f07e	ce ff f0	ldx  #fff0			;skip part of ROM
+f07e	ce ff f0	ldx  #fff0			; skip part of ROM
 f081	20 f1		bra  f1 (F074)
-f083	43		coma			;NOT A
-f084	26 c6		bne  c6 (F04C)			;must be 0 or redo RAM+ROM test
+f083	43		coma				; NOT A
+f084	26 c6		bne  c6 (F04C)			; must be 0 or redo RAM+ROM test
 
 f086	c6 01		ldab #01
-f088	d7 8a		stab 8a				;$8A=1
-f08a	4f		clra			;A=0
+f088	d7 8a		stab 8a				; $8A=1
+f08a	4f		clra				; A=0
 f08b	5c		incb
 
+; initial matrix scan
 f08c	dd 8c		std  8c
-f08e	43		coma			;NOT A
-f08f	53		comb			;NOT B
-f090	d7 06		stab 06				;DR3		keyboard rows
-f092	97 07		staa 07				;DR4
-f094	96 02		ldaa 02				;DR1
-f096	43		coma			;NOT A
+f08e	43		coma				; NOT A
+f08f	53		comb				; NOT B
+f090	d7 06		stab 06				; DR3		keyboard rows
+f092	97 07		staa 07				; DR4
+f094	96 02		ldaa 02				; DR1, read matrix output
+f096	43		coma				; NOT A
 f097	26 0a		bne  0a (F0A3)
 f099	7c 00 8a	inc 008a
 f09c	dc 8c		ldd  8c
