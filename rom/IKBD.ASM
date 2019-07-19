@@ -84,7 +84,7 @@ f08a	4f		clra				; A=0
 f08b	5c		incb
 
 ; initial matrix scan
-f08c	dd 8c		std  8c
+f08c	dd 8c		std  8c                         ; $8C - current column
 f08e	43		coma				; NOT A
 f08f	53		comb				; NOT B
 f090	d7 06		stab 06				; DR3		keyboard rows
@@ -93,9 +93,9 @@ f094	96 02		ldaa 02				; DR1, read matrix output
 f096	43		coma				; NOT A
 f097	26 0a		bne  0a (F0A3)
 f099	7c 00 8a	inc 008a
-f09c	dc 8c		ldd  8c
-f09e	05		asld
-f09f	24 eb		bcc  eb (F08C)
+f09c	dc 8c		ldd  8c                         ; $8C - current column
+f09e	05		asld 				; store column
+f09f	24 eb		bcc  eb (F08C)			; loop until a columns scanned
 
 f0a1	20 2c		bra  2c (F0CF)
 
@@ -152,7 +152,7 @@ f0fd	d7 8b		stab 8b
 f0ff	c6 01		ldab #01
 f101	d7 8a		stab 8a		
 f103	5c		incb
-f104	dd 8c		std  8c
+f104	dd 8c		std  8c                         ; $8C - current column
 f106	4c		inca
 f107	97 b0		staa b0
 f109	97 b1		staa b1
@@ -248,9 +248,9 @@ f1b4	26 fa		bne  fa (F1B0)       	; loop while it is changing
 f1b6	39		rts
 
 ; this is used for joystick interrogate
-f1b7	86 01		ldaa #01		; enable mouse/joy0 direction input via 74LS03
+f1b7	86 01		ldaa #01		; disable mouse/joy0 direction input via 74LS244
 f1b9	97 03		staa 03			; this only toggles P2.0
-f1bb	dc 8c		ldd  8c			; $8C
+f1bb	dc 8c		ldd  8c			; $8C - current column
 f1bd	43		coma			; NOT A
 f1be	53		comb			; NOT B
 f1bf	d7 06		stab 06			; DR3		keyboard rows
@@ -402,7 +402,7 @@ f2cc	bd fd 34	jsr  fd34			;send
 f2cf	96 8b		ldaa 8b
 f2d1	81 02		cmpa #02
 f2d3	26 c5		bne  c5 (F29A)
-f2d5	dc 8c		ldd  8c
+f2d5	dc 8c		ldd  8c                 ; $8C - current column
 f2d7	05		asld
 f2d8	25 05		bcs  05 (F2DF)
 f2da	7c 00 8a	inc 008a
@@ -410,7 +410,7 @@ f2dd	20 04		bra  04 (F2E3)
 f2df	5c		incb
 f2e0	d7 8a		stab 8a
 f2e2	5c		incb
-f2e3	dd 8c		std  8c
+f2e3	dd 8c		std  8c                 ; $8C - current column
 f2e5	7e fe cc	jmp fecc
 f2e8	c4 03		andb #03
 f2ea	ce f2 f3	ldx  #f2f3			; base of scancodes

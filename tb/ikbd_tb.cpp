@@ -8,7 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include "Vikbd_tb.h"
+#include "Vikbd.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
@@ -54,40 +54,44 @@ unsigned char cmd_set_fire_button_monitoring[] = { 1, 0x18 };
 #define FIRE  (1<<4)
 
 #define TSER  0
-#define TWIRE 1
+#define TJOY  1
 #define TTEXT 2
+#define TPS2K 3
+#define TPS2M 4
 
 #define IO_DONE           0
-#define IO_PORT(a,b)      ((a<<4)|b)
-#define IO_SET_BIT(a,b)   1, IO_PORT(a,b)
-#define IO_CLR_BIT(a,b)   2, IO_PORT(a,b)
-#define IO_WAIT(a)        3, a
-#define IO_SET_MTX(a,b)   4, a,b
-#define IO_CLR_MTX(a,b)   5, a,b
-#define IO_JOY(a,b)       6, ((a<<6)|b)
+#define IO_JOY(a)         1, a
+#define IO_WAIT(a)        2, a
 
-unsigned char io_joy1_up_n_fire[] = {
-  IO_JOY(1,UP),        IO_WAIT(200),
-  IO_JOY(1,DOWN),      IO_WAIT(200),
-  IO_JOY(1,DOWN|FIRE), IO_WAIT(200),
-  IO_JOY(1,NONE),      IO_DONE };
+unsigned char io_joy_up_n_fire[] = {
+  IO_JOY(UP),        IO_WAIT(200),
+  IO_JOY(DOWN),      IO_WAIT(200),
+  IO_JOY(DOWN|FIRE), IO_WAIT(200),
+  IO_JOY(NONE),      IO_DONE };
 
-unsigned char io_mouse[] = {
-  IO_JOY(0,LEFT),       IO_WAIT(1), IO_JOY(0,LEFT|RIGHT), IO_WAIT(1),
-  IO_JOY(0,RIGHT),      IO_WAIT(1), IO_JOY(0,NONE),       IO_WAIT(1),
-  IO_JOY(0,LEFT),       IO_WAIT(1), IO_JOY(0,LEFT|RIGHT), IO_WAIT(1),
-  IO_JOY(0,RIGHT),      IO_WAIT(1), IO_JOY(0,NONE),       IO_WAIT(1),
-  IO_JOY(0,LEFT),       IO_WAIT(1), IO_JOY(0,LEFT|RIGHT), IO_WAIT(1),
-  IO_JOY(0,RIGHT),      IO_WAIT(1), IO_JOY(0,NONE),       IO_WAIT(1),
-  IO_JOY(0,LEFT),       IO_WAIT(1), IO_JOY(0,LEFT|RIGHT), IO_WAIT(1),
-  IO_JOY(0,RIGHT),      IO_WAIT(1), IO_JOY(0,NONE),       IO_WAIT(1),
-  IO_DONE };
+unsigned char io_joy_fire_on_off[] = {
+  IO_JOY(FIRE),      IO_WAIT(10),
+  IO_JOY(NONE),      IO_DONE };
 
-unsigned char io_press_key_shift_e[] = {
-  IO_SET_MTX(5,1), IO_WAIT(100), IO_SET_MTX(4,5),
-  IO_WAIT(100),
-  IO_CLR_MTX(4,5), IO_WAIT(100), IO_CLR_MTX(5,1),
-  IO_DONE };
+#define BL 0x01
+#define BR 0x02
+#define BM 0x04
+#define PS2_PAUSE(n)   0xff, n
+#define PS2_DONE       0x00
+#define PS2_MOUSE(b,x,y)  ((y&0x100)?0x20:0x00)|((x&0x100)?0x10:0x00)|0x08|b,x&0xff,y&0xff
+
+unsigned char io_ps2_press_and_release_shift_e[] = {
+  0x12,       PS2_PAUSE(50),    // press shift
+  0x24,       PS2_PAUSE(50),    // press e
+  0xf0, 0x24, PS2_PAUSE(50),    // release e
+  0xf0, 0x12, PS2_DONE          // release shift
+};
+  
+unsigned char io_ps2_caps_lock_n_up[] = {
+  0x58, 0xe0, 0x75, PS2_PAUSE(100), 0xf0, 0x58, 0xe0, 0xf0, 0x75, PS2_DONE };
+
+unsigned char io_ps2_mouse_up_right[] = { PS2_MOUSE(BL,10,20), PS2_DONE };
+unsigned char io_ps2_mouse_down_left[] = { PS2_MOUSE(0,-20,-10), PS2_DONE };
 
 // ========= events to be generated during simulation =========
 // Consists of time in ms when request is to be sent to ikbd
@@ -104,15 +108,22 @@ struct {
   // Reply after reset ~65ms, docs indicate 300ms
 #endif
 #if 0 // regular operation
-#define RUNTIME_MS 500
-  {    1, TTEXT, (unsigned char*)"Key scan, pressing and releasing shift-e" },  
-  {  100, TWIRE, io_press_key_shift_e },
-  // reply: $2a, $12, $92, $aa
-#endif
-#if 0 // relative mouse
 #define RUNTIME_MS 300
+  {    1, TTEXT, (unsigned char*)"Key scan, pressing and releasing shift-e" },  
+  {  100, TPS2K, io_ps2_press_and_release_shift_e },
+#endif
+#if 0 // caps lock and ps2 extended codes test
+#define RUNTIME_MS 500
+  {    1, TTEXT, (unsigned char*)"Key scan, pressing and releasing capslock and cursor up" },  
+  {  200, TPS2K, io_ps2_caps_lock_n_up },
+#endif
+#if 1 // relative mouse
+#define RUNTIME_MS 400
   {   80, TTEXT, (unsigned char*)"Test relative mouse movement" },
-  {  100, TWIRE, io_mouse },
+  {   80, TTEXT, (unsigned char*)"Should end at X:-10, Y:10" },
+  {  100, TPS2M, io_ps2_mouse_up_right },
+  {  250, TPS2M, io_ps2_mouse_down_left },
+  // should end at x:-10,y:10
 #endif
 #if 0 // set/get time
 #define RUNTIME_MS 2500
@@ -132,16 +143,15 @@ struct {
   {  140,  TSER, cmd_request_mouse_mode },
   // reply: mouse is in absolute mode
   {  160,  TSER, cmd_interrogate_mouse_position },
-  // reply: $f7,$00,$01,$40,$00,$c8, (320,200)
 #endif
-#if 1 // request joystick information
+#if 0 // request joystick information
 #define RUNTIME_MS 1000
   {   80, TTEXT, (unsigned char*)"Interrogate joystick" },
   {   80,  TSER, cmd_set_joystick_interrogation_mode },
   {   90,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$00
   {  100, TTEXT, (unsigned char*)"Joystick 1 up and fire" },
-  {  100, TWIRE, io_joy1_up_n_fire },
+  {  100,  TJOY, io_joy_up_n_fire },
   {  200,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$01
   {  400,  TSER, cmd_interrogate_joystick },
@@ -155,13 +165,15 @@ struct {
 #define RUNTIME_MS 1000
   {   80, TTEXT, (unsigned char*)"Test joystick monitoring" },
   {   80,  TSER, cmd_set_joystick_monitoring },
-  {  200, TWIRE, io_joy1_up_n_fire },
+  {   80,  TSER, NULL },  // disable ikbd output parsing
+  {  200,  TJOY, io_joy_up_n_fire },
 #endif
 #if 0 // fire button monitoring
 #define RUNTIME_MS 110
   {   80, TTEXT, (unsigned char*)"Test fire button monitoring" },
+  {   80,  TSER, NULL },  // disable ikbd output parsing
   {   80,  TSER, cmd_set_fire_button_monitoring },
-  {   90, TWIRE, io_joy1_fire_on_off },
+  {   90,  TJOY, io_joy_fire_on_off },
 #endif
   {    0,     0, NULL }
 };
@@ -175,18 +187,14 @@ int sc = 0;
 int wt = 0;
 unsigned char *wp = NULL;
 int wc = 0;
-unsigned char matrix[] = {
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
 
-// joystick and mouse inputs
-unsigned char matrix_joy = 0xff;
+// ps2 event generation
+int pd = 0;
+int pt = 0;
+unsigned char *pp = NULL;
+int pc = 0;
 
-// mirror of port states
-unsigned char P[4] = { 0xff, 0x1f, 0xff, 0xff };
-
-static Vikbd_tb *tb;
+static Vikbd *tb;
 static VerilatedVcdC *trace;
 static int tickcount;
 
@@ -195,15 +203,18 @@ static int tickcount;
 #define GAP  1   // extra pause between bytes in bits
 #define TPB  (int)(250*2000000*2/7812.5)
 
+// by default the testbench parses ikbd replies
+static int ikbd_parse = 1;
+
 void serial_do() {
   static int rxsr = 0;
   static int rxcnt = 0;
   static int rxt = 0;
-  
-  // check for incoming data on po
-  if(!(tb->po2 & 0x10) && !rxcnt) {
-    // printf("@%d: RX start\n", tickcount);
+  static int rx_mouse_x = 0;
+  static int rx_mouse_y = 0;
 
+  // check for incoming data on po
+  if(!tb->tx && !rxcnt) {
     // make sure we sample in the middle of the bit
     rxt = tickcount - TPB/2;
     rxcnt = 10;
@@ -213,15 +224,114 @@ void serial_do() {
   // rx in progess 
   if(rxcnt) {
     if((tickcount - rxt) == TPB) {
-      // printf("Peek @ %d %d: @%d %02x\n", tickcount, TPB, rxcnt, rxsr);
+      static int rx_state = 0;
+      static int rx_msg_cnt = 0;
 
       if(rxcnt > 1) {
 	rxsr >>= 1;
-	if(!(tb->po2 & 0x10))
+	if(!tb->tx)
 	  rxsr |= 0x80;
-      } else    
-	printf("@%.2fµs RX %02x\n", tickcount/1000.0, rxsr);
-      
+      } else if(tb->tx) {
+	char desc[100] = "";
+	if(ikbd_parse) {	
+	  if(rx_msg_cnt == 0) {
+	    switch(rxsr) {
+	    case 0xf0:
+	      sprintf(desc, " => BOOT OK V0 or KEY RELEASE KEYPAD-0");
+	      break;
+	    case 0xf1:
+	      sprintf(desc, " => BOOT OK V1 or KEY RELEASE KEYPAD-.");
+	      break;
+	    case 0xf6:
+	      sprintf(desc, " => STATUS REPLY");
+	      rx_state = 0xf6; rx_msg_cnt = 7;
+	      break;
+	    case 0xf7:
+	      sprintf(desc, " => MOUSE ABS");
+	      rx_state = 0xf7; rx_msg_cnt = 5;
+	      break;
+	    case 0xf8:
+	    case 0xf9:
+	    case 0xfa:
+	    case 0xfb:
+	      rx_state = 0xf8; rx_msg_cnt = 2;
+	      sprintf(desc, " => MOUSE REL L:%s R:%s", rxsr&1?"on":"off",
+		      rxsr&2?"on":"off");
+	      break;
+	    case 0xfc:
+	      sprintf(desc, " => TIME OF DAY");
+	      rx_state = 0xfc; rx_msg_cnt = 6;
+	      break;
+	    case 0xfd:
+	      sprintf(desc, " => JOYSTICK");
+	      rx_state = 0xfd; rx_msg_cnt = 2;
+	      break;
+	    case 0xfe:
+	      sprintf(desc, " => JOYSTICK 0");
+	      rx_state = 0xfe; rx_msg_cnt = 1;
+	      break;
+	    case 0xff:
+	      sprintf(desc, " => JOYSTICK 1");
+	      rx_state = 0xff; rx_msg_cnt = 1;
+	      break;
+	    default:
+	      if(rxsr & 0x80) sprintf(desc, " => KEY RELEASE(%02x)", rxsr & 0x7f);
+	      else            sprintf(desc, " => KEY PRESS(%02x)", rxsr & 0x7f);
+	    }
+	  } else {
+	    switch(rx_state) {
+	    case 0xf6:  // status report
+	      sprintf(desc, " => ST(%d)=%02x", 7-rx_msg_cnt, rxsr);
+	      break;	    
+	    case 0xf7:  // absolute mouse report
+	      switch(rx_msg_cnt) {
+	      case 5:
+		sprintf(desc, " => MOUSE BTN %1x", rxsr % 0x0f);
+		break;
+	      case 4:
+		rx_mouse_x = rxsr;
+		break;
+	      case 3:
+		rx_mouse_x = rx_mouse_x * 256 + rxsr;
+		sprintf(desc, " => MOUSE X=%d", rx_mouse_x);
+		break;
+	      case 2:
+		rx_mouse_y = rxsr;
+		break;
+	      case 1:
+		rx_mouse_y = rx_mouse_y * 256 + rxsr;
+		sprintf(desc, " => MOUSE Y=%d", rx_mouse_y);
+		break;
+	      }
+	      break;
+	    case 0xf8:  // relative mouse report
+	      if(rx_msg_cnt == 2) {
+		rx_mouse_x += (char)rxsr;
+		sprintf(desc, " => MOUSE X %d=%d", (char)rxsr, rx_mouse_x);
+	      }
+	      if(rx_msg_cnt == 1) {
+		rx_mouse_y += (char)rxsr;
+		sprintf(desc, " => MOUSE Y %d=%d", (char)rxsr, rx_mouse_y);
+	      }
+	      break;
+	    case 0xfc: {  // time of day
+	      char name[][6] = { "SEC", "MIN", "HOUR", "DAY", "MONTH", "YEAR" };
+	      sprintf(desc, " => %s %02x", name[rx_msg_cnt-1], rxsr);
+	    } break;	    
+	    case 0xfd: // joystick
+	      sprintf(desc, " => JOY(%d), F:%s D:%1x", 2-rx_msg_cnt, (rxsr&0x80)?"on ":"off",rxsr&0xf);
+	      break;
+	      
+	    default:
+	      break;
+	    }
+	    
+	    rx_msg_cnt--;
+	  }
+	}
+	printf("@%.2fµs IKBD RX %02x%s\n", tickcount/1000.0, rxsr, desc);
+      }
+	
       rxt = tickcount;
       rxcnt--;
     }    
@@ -237,17 +347,14 @@ void serial_do() {
   if(bitn == 0) {
     bit = 1;
     n = 'S';
-    printf("@%.2fµs TX %02x\n", tickcount/1000.0, sp[byten+1]);
+    printf("@%.2fµs IKBD TX %02x\n", tickcount/1000.0, sp[byten+1]);
   } else if(bitn < 9) {
     bit = (sp[byten+1]&(1<<(bitn-1)))?1:0;
     n = '0'+(bitn-1);
   }
-    
-  //  printf("@%.2fµs TX %d/%c: %d\n", tickcount/1000.0, byten, n, bit);
 
-  // mix serial signals into port 2
-  if(bit) { P[1] &= ~0x08; tb->pi2 = P[1]; }
-  else    { P[1] |=  0x08; tb->pi2 = P[1]; };
+  // drive ikbds rx line
+  tb->rx = !bit;
 
   sc++;
   st = tickcount;
@@ -256,134 +363,129 @@ void serial_do() {
 }
 
 void serial_start(unsigned char *msg) {
+  // this test sets the ikbd in a special report mode where the
+  // reply should not be parsed as usual
+  if(msg == 0) {
+    ikbd_parse = 0;
+    return;
+  }
+
   sc = 0;
   sp = msg;
   st = 0;
   serial_do();
 }
 
-void wire_do() {
+void joystick_do() {
   static uint16_t col = 0xffff;
-
-  // permanently monitor IO lines for column selection
-  uint16_t tcol = 0x7fff ^ ((tb->po4 << 7) | (tb->po3 >> 1));
-  if(tcol != col) {
-    col = tcol;
-
-    // do some sanity check. Only one column should be
-    // selected at most. So only 16 values are valid    
-    int b=0, column = -1;
-    for(char i=0;i<15;i++) if(col & (1<<i)) { b++; column = i; }
-    // printf("@%.2fµs col %04x %d\n", tickcount/1000.0, col, column);
-
-    if(b > 1)
-      printf("@%.2fµs ERROR, too many columns selected. %d!\n", tickcount/1000.0, b);
-
-    if(column >= 0) P[0] = matrix[column];
-    else            P[0] = 0xff;
-    tb->pi1 = P[0];    
-  }
-
-#if 0
-  // This code is for a version of the kbd using a 74LS03.
-  
-  // P20 goes to 74LS03 for mouse directions. Outputs of LS03 are only
-  // low if both inputs (P20 and mouse signal) are 1
-  unsigned char pi1 = P[0];
-  if(tb->po2 & 1)
-    pi1 &= ((~matrix_joy) | 0xf0);
-  
-  // joy2 directions always map (meaning that using the joystick
-  // interferes with keyboard input
-  // printf("JM %02x %02x\n", P[0], P[0] & (matrix_joy | 0x0f));
-  P[0] &= (matrix_joy | 0x0f);
-  tb->pi1 = pi1;
-#else
-  // This code is for a 74LS244 equipped keyboard
-  P[3] = matrix_joy;
-  tb->pi4 = P[3];
-#endif
-  
+    
   while(wp && tickcount >= wt) {
     switch(wp[wc]) {
-    case 1: {  // set port
-      int port = wp[wc+1]>>4;
-      int bit  = wp[wc+1]&15;
-      printf("@%.2fµs SET(%d,%d)\n", tickcount/1000.0, port, bit);
-      P[port-1] |= (1<<bit);    
-      if(port == 1) tb->pi1 = P[0];
-      if(port == 2) tb->pi2 = P[1];
+    case 1: {  // set jpystick
+      printf("@%.2fµs JOY(%02x)\n", tickcount/1000.0, wp[wc+1]);
+      tb->joystick = wp[wc+1];
       wc+=2;
     } break;
-    case 2: {  // clear port
-      int port = wp[wc+1]>>4;
-      int bit  = wp[wc+1]&15;
-      printf("@%.2fµs CLR(%d,%d)\n", tickcount/1000.0, port, bit);
-      P[port-1] &= ~(1<<bit);    
-      if(port == 1) tb->pi1 = P[0];
-      if(port == 2) tb->pi2 = P[1];
-      wc+=2;
-    } break;
-    case 3:  // wait
+    case 2:  // wait
       // printf("@%.2fµs WAIT(%dms)\n", tickcount/1000.0, wp[wc+1]);
       wt = tickcount + 1000000*wp[wc+1];   // X us
       wc+=2;
       break;
-    case 4: {  // set matrix
-      int row = wp[wc+1];
-      int col = wp[wc+2];
-      printf("@%.2fµs KEYDOWN(%d,%d)\n", tickcount/1000.0, row, col);
-      matrix[col] &= ~(1<<row);
-      wc+=3;
-    } break;
-    case 5: {  // clear matrix
-      int row = wp[wc+1];
-      int col = wp[wc+2];
-      printf("@%.2fµs KEYUP(%d,%d)\n", tickcount/1000.0, row, col);
-      matrix[col] |=  (1<<row);
-      wc+=3;
-    } break;
-    case 6: {  // set jpystick
-      int stick = wp[wc+1]>>6;
-      int mask  = wp[wc+1]&0x3f;
-      printf("@%.2fµs JOY(%d,0x%02x)\n", tickcount/1000.0, stick, mask);
-      if(stick == 0) {
-	// joystick 0 fire button is on P21
-	if(mask & FIRE) P[1] &= ~(1<<1);
-	else            P[1] |=  (1<<1);
-	tb->pi2 = P[1];
-
-	// map direction bits onto bottom four bits of matrix input
-	matrix_joy = (matrix_joy & 0xf0) | (~mask & 0x0f);
-      } else {
-	// joystick 1 fire button is on P22
-	if(mask & FIRE) P[1] &= ~(1<<2);
-	else            P[1] |=  (1<<2);
-	tb->pi2 = P[1];
-	
-	// map direction bits onto top four bits of matrix input
-	matrix_joy = (matrix_joy & 0x0f) | ((~mask & 0x0f)<<4);	
-      }
-      wc+=2;
-    } break;
-      
     default:
+      printf("HUH???\n");
       break;
     }
     
     // DONE ?  
-    if(!wp[wc]) {
-      // printf("@%.2fµs DONE\n", tickcount/1000.0);
+    if(!wp[wc])
       wp = NULL;
-    }
   }
 }
+
+#define PS2_CLK   12000    // 12khz
+#define PS2_NS    (1000000000/PS2_CLK/2)
+
+void ps2_do() {
+  static int caps = 1;
+
+  if(tb->caps_lock != caps) {
+    caps = tb->caps_lock;
+    printf("@%.2fµs CAPS LOCK changed to %d!\n", tickcount/1000.0, caps);
+  }
   
-void wire_start(unsigned char *msg) {
+  if(pp && tickcount >= pt) {
+    // set data on rising edge    
+    if(pd == 0) tb->ps2_kbd_clk = !tb->ps2_kbd_clk;
+    else        tb->ps2_mouse_clk = !tb->ps2_mouse_clk;
+
+    if((pd == 0 && tb->ps2_kbd_clk) || (pd == 1 && tb->ps2_mouse_clk)) {
+      pc++;
+      
+      int bit = pc%11;    // start, 8 data, parity, stop
+      int byte = pc/11;
+      int b = pp[byte];
+      int par = 1;
+      for(char i=0;i<8;i++)
+	if(b&(1<<i)) par = !par;
+
+      if(!b) {
+	pp = NULL;
+	return;
+      }
+
+      if(bit == 0) {	
+	if(b == PS2_DONE) {
+	  pp = NULL;
+	  return;
+	}
+	printf("@%.2fµs PS2 TX %02x\n", tickcount/1000.0, b);
+      }
+
+      if(pd == 0) {      
+	if(bit == 0)             tb->ps2_kbd_data = 0;    // start
+	if(bit >= 1 && bit <= 8) tb->ps2_kbd_data = (b&(1<<(bit-1)))?1:0;
+	if(bit == 9)             tb->ps2_kbd_data = par;  // parity
+	if(bit == 10)            tb->ps2_kbd_data = 1;    // stop
+      } else {
+	if(bit == 0)             tb->ps2_mouse_data = 0;    // start
+	if(bit >= 1 && bit <= 8) tb->ps2_mouse_data = (b&(1<<(bit-1)))?1:0;
+	if(bit == 9)             tb->ps2_mouse_data = par;  // parity
+	if(bit == 10)            tb->ps2_mouse_data = 1;    // stop
+      }
+    }
+    
+    pt = tickcount + PS2_NS;
+
+    // check if next is a "pause" and extend pause accordingly
+    // TODO: Pause is not 100% correct. Clock stays low until begin of next byte
+    if(((pd == 0 && !tb->ps2_kbd_clk)||(pd == 1 && !tb->ps2_mouse_clk)) && (pc%11 == 10)) {      
+      if(pp[pc/11+1] == 0xff) {
+	// PS2_PAUSE
+	pt = tickcount + PS2_NS + 1000000 * pp[pc/11+2];
+	// skip next two byes
+	pc += 22;
+      }
+    }	    
+  }
+}
+
+void joystick_start(unsigned char *msg) {
   wc = 0;
   wp = msg;
   wt = 0;
-  wire_do();
+  joystick_do();
+}
+
+void ps2_start(char dev, unsigned char *msg) {
+  pd = dev;
+  pc = 0;
+  pp = msg;
+  
+  printf("@%.2fµs PS2 TX %02x\n", tickcount/1000.0, pp[0]);
+  if(pd == 0) tb->ps2_kbd_data = 0;     // start bit
+  else        tb->ps2_mouse_data = 0;     // start bit
+  pt = tickcount + PS2_NS;
+  ps2_do();
 }
 
 void tick(int c) {
@@ -392,18 +494,23 @@ void tick(int c) {
   trace->dump(tickcount);
   tickcount += 250; // 2*250ns/cycle -> 2MHz, matching a real 6301@4MHz
 
-  wire_do();
+  joystick_do();
   serial_do();
+  ps2_do();
   
   // check if an event is supposed to start
   for(char i=0;events[i].time;i++) {
     if(events[i].time * 1000000 == tickcount) {
       if(events[i].type == TSER)
 	serial_start(events[i].cmd);
-      if(events[i].type == TWIRE)
-	wire_start(events[i].cmd);
+      if(events[i].type == TJOY)
+	joystick_start(events[i].cmd);
       if(events[i].type == TTEXT)
 	printf("@%.2fµs %s\n", tickcount/1000.0, events[i].cmd);
+      if(events[i].type == TPS2K)
+	ps2_start(0, events[i].cmd);
+      if(events[i].type == TPS2M)
+	ps2_start(1, events[i].cmd);
     }
   }
 
@@ -424,19 +531,23 @@ int main(int argc, char **argv) {
   trace = new VerilatedVcdC;
   
   // Create an instance of our module under test
-  tb = new Vikbd_tb;
+  tb = new Vikbd;
   tb->trace(trace, 99);
   trace->open("ikbd.vcd");
 
   // init all signals
   tb->res = 1;
-  tb->nmi = 0;
-  tb->irq = 0;
+
+  // init ps2 keyboard
+  tb->ps2_kbd_clk = 1;
+  tb->ps2_kbd_data = 1;
   
-  tb->pi1 = P[0];
-  tb->pi2 = P[1];
-  tb->pi3 = P[2];
-  tb->pi4 = P[3];
+  // init ps2 mouse
+  tb->ps2_mouse_clk = 1;
+  tb->ps2_mouse_data = 1;
+
+  // init ikbd uart
+  tb->rx = 1;
   
   // apply reset
   ticks(5);

@@ -15,51 +15,50 @@ be reported on the console:
 ```
 ./ikbd_tb
 @2.50µs out of reset
-@65218.25µs RX f1
-@80000.00µs Test fire button monitoring
-@80000.00µs TX 18
-@84546.25µs RX 00
-@86338.25µs RX 00
-@88130.25µs RX 00
-@89794.25µs RX 00
-@90000.00µs CLR(2,2)
-@91586.25µs RX 03
-@93378.25µs RX ff
-@95170.25µs RX ff
-@96706.25µs RX ff
-@98498.25µs RX ff
-@100001.00µs SET(2,2)
-@100290.25µs RX ff
-@102082.25µs RX f0
-@103746.25µs RX 00
-@105538.25µs RX 00
-@107330.25µs RX 00
-@109250.25µs RX 00
+@65218.25µs IKBD RX f1 => BOOT OK V1 or KEY RELEASE KEYPAD-.
+@80000.00µs Test relative mouse movement
+@80000.00µs Should end at X:-10, Y:10
+@100000.00µs PS2 TX 09
+@100918.50µs PS2 TX 0a
+@101837.00µs PS2 TX 14
+@105666.25µs IKBD RX f8 => MOUSE REL L:off R:off
+@106946.25µs IKBD RX 01 => MOUSE X 1=1
+@108226.25µs IKBD RX 00 => MOUSE Y 0=0
+@109506.25µs IKBD RX f8 => MOUSE REL L:off R:off
+@110786.25µs IKBD RX 01 => MOUSE X 1=2
+@112066.25µs IKBD RX 01 => MOUSE Y 1=1
+@113346.25µs IKBD RX f8 => MOUSE REL L:off R:off
+@114626.25µs IKBD RX 04 => MOUSE X 4=6
+@115906.25µs IKBD RX 04 => MOUSE Y 4=5
+@117186.25µs IKBD RX f9 => MOUSE REL L:on R:off
+@118466.25µs IKBD RX 01 => MOUSE X 1=7
+@119746.25µs IKBD RX 01 => MOUSE Y 1=6
+@121026.25µs IKBD RX f9 => MOUSE REL L:on R:off
+@122306.25µs IKBD RX 02 => MOUSE X 2=9
+@123586.25µs IKBD RX 07 => MOUSE Y 7=13
+@124866.25µs IKBD RX f9 => MOUSE REL L:on R:off
+@126146.25µs IKBD RX 00 => MOUSE X 0=9
+@127426.25µs IKBD RX 04 => MOUSE Y 4=17
+@128706.25µs IKBD RX f9 => MOUSE REL L:on R:off
+@129986.25µs IKBD RX 00 => MOUSE X 0=9
+@131266.25µs IKBD RX 02 => MOUSE Y 2=19
 
 ```
 
 In this case the IKBD sends its default boot message $f1 after
-~65ms. Then the testbench sends the $18 command (set fire button
-monitoring) to the IKBD which in turn starts to send button
-reports. At 90ms the testbench "presses fire" which results in
-the appropriate bit changes in the IKBDs report. At 100ms the
-fire button is released again.
+~65ms. Then the testbench sends a PS2 mouse movement event into
+tke IKBD and replies with a set of relative mouse movement events.
 
 More test patterns can be selected in ```tb/ikbd_tb.cpp```.
 
 ## Current state
 
-The IKBD boots and passes RAM and ROM tests. It scans the key
-matrix and sends the $f1 reset reply.
+The IKBD seems to be working completely. A ps2 keyboard and mouse
+can be parsed into input states for the hd6301. A single joystick
+is also supported on port 1.
 
-Most commands have been tested and keyboard, mouse and joysticks
-work. The internal clock also runs.
+## ToDo
 
-The TST and EIM instructions were broken and have been
-fixed in the HD6301 core and some of the internal peripherals
-like the SCI serial interface have been implemented.
-
-## Current work
-
-A PS/2 interface to connect to real ps2 keyboards or the
-ps2 emulation internally used by the MIST.
+Add the last missing PS2 keyboard matrix mappings in ps2.v and
+add the ability to switch between the mouse and a second joystick
+on ikbd port 0.
