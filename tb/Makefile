@@ -1,6 +1,6 @@
 OBJ_DIR=obj_dir
 VERILATOR_DIR=/usr/share/verilator/include
-HDL_FILES = ../hd63701/HD63701.v ../hd63701/HD63701_CORE.v ../ps2.v
+HDL_FILES = ../hd63701/HD63701.v ../hd63701/HD63701_CORE.v ../ps2.sv
 
 all: ikbd.vcd
 
@@ -12,8 +12,8 @@ ikbd.vcd: ikbd_tb
 Vikbd_tb.cpp: ${OBJ_DIR}/Vikbd_tb.cpp
 
 
-${OBJ_DIR}/Vikbd_tb.cpp: ../ikbd.v ${HDL_FILES}
-	verilator --trace --top-module ikbd -I../hd63701 -I../rom -cc ../ikbd.v ${HDL_FILES}
+${OBJ_DIR}/Vikbd_tb.cpp: ../ikbd.sv ${HDL_FILES}
+	verilator --trace --top-module ikbd -I../hd63701 -I../rom -cc ../ikbd.sv ${HDL_FILES}
 
 ikbd_tb: ${OBJ_DIR}/Vikbd_tb.cpp ikbd_tb.cpp
 	g++ -I $(OBJ_DIR) -I$(VERILATOR_DIR) $(VERILATOR_DIR)/verilated.cpp $(VERILATOR_DIR)/verilated_vcd_c.cpp ikbd_tb.cpp  $(OBJ_DIR)/Vikbd__Trace.cpp $(OBJ_DIR)/Vikbd__Trace__Slow.cpp $(OBJ_DIR)/Vikbd.cpp $(OBJ_DIR)/Vikbd__Syms.cpp -DOPT=-DVL_DEBUG -o ikbd_tb

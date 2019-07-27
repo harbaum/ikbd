@@ -96,4 +96,4 @@ module ikbd (
 	      (!po4[6]?matrix[13]:8'hff)&
 	      (!po4[7]?matrix[14]:8'hff);
    
-endmodule;
+endmodule

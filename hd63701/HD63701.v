@@ -225,7 +225,7 @@ module HD63701_SCI
  input [7:0]  mcu_do,
 
  input 	      rx,
- output       tx,
+ output reg   tx,
  output       te,
  output       mcu_irq0,
  output       en_sci,
