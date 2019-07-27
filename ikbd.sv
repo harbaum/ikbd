@@ -49,7 +49,7 @@ module ikbd (
    // in and out are seperate lines.
    wire [7:0] pi4 = po2[0]?8'hff:~{joystick[3:0], mouse_atari[3:0]};
    // right mouse button and joystick fire button are connected
-   wire [1:0] fire_buttons = { mouse_atari[4] | joystick[4], mouse_atari[5] };   
+   wire [1:0] fire_buttons = { mouse_atari[5] | joystick[4], mouse_atari[4] };
 
    // hd6301 output ports
    wire [7:0] po2, po3, po4;

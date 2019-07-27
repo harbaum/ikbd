@@ -146,7 +146,8 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h76) matrix[ 4][1] <= kbd_release; // esc
 			if(kbd_sr[7:0] == 8'h66) matrix[11][1] <= kbd_release; // backspace
 			if(kbd_sr[7:0] == 8'h0d) matrix[ 4][3] <= kbd_release; // tab		
-			
+			if(kbd_sr[7:0] == 8'h7c) matrix[14][1] <= kbd_release; // KP *
+
 			// modifiers
 			if(kbd_sr[7:0] == 8'h12) matrix[ 1][5] <= kbd_release; // lshift
 			if(kbd_sr[7:0] == 8'h59) matrix[10][7] <= kbd_release; // rshift
@@ -164,6 +165,7 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h6b) matrix[12][3] <= kbd_release; // left
 			if(kbd_sr[7:0] == 8'h74) matrix[12][5] <= kbd_release; // right
 
+			if(kbd_sr[7:0] == 8'h4a) matrix[14][0] <= kbd_release; // KP /
 			/* TODO: complete mapping */
 		     end
 		  end
@@ -287,7 +289,7 @@ always @(posedge clk) begin
 		     mouse_x <= { mouse_sign[0], mouse_sr[7:0] };
 		     mouse_state <= 2'd2;		     		       
 		  end else begin
-		     mouse_y <= { mouse_sign[1], mouse_sr[7:0] };
+		     mouse_y <= ~{ mouse_sign[1], mouse_sr[7:0] } + 1'd1;
 		     mouse_state <= 2'd0;		     		       
 		  end		  
 	       end
