@@ -248,6 +248,7 @@ module HD63701_SCI
    
    reg [7:0]  txcnt;  // 9 bit transmit counter
    reg [8:0]  txsr;
+   reg        clr_trcsr;
       
    always @( posedge mcu_clx2 or posedge mcu_rst ) begin
       if (mcu_rst) begin
@@ -255,6 +256,10 @@ module HD63701_SCI
 	 TRCSR <= 8'h00;
 	 RDR   <= 8'h00;
 	 TDR   <= 8'h00;
+	 TDRE  <= 1'b1;
+	 RDRF  <= 1'b0;
+	 ORFE  <= 1'b0;
+	 clr_trcsr <= 1'b0;
 	 last_rx <= 1'b1;
 	 rxcnt <= 8'h00;
 	 txcnt <= 8'h00;
@@ -283,25 +288,35 @@ module HD63701_SCI
 	       if(rxsr[0] == 1'b0) begin
 		  if(rx == 1'b1) begin
 		     rxsr <= 9'h1ff;
-		     RDR <= rxsr[8:1];
-		     if (RDRF == 1'b1) ORFE <= 1'b1;		     
+		     if (RDRF == 1'b1) ORFE <= 1'b1; // overrun error, data is not transferred to RDR
+		     else RDR <= rxsr[8:1];
 		     RDRF <= 1'b1;
-		  end else
+		  end else begin
 		     ORFE <= 1'b1;
+		     // framing error, data is transferred to RDR
+		     RDR <= rxsr[8:1];
+		  end
 	       end
 	    end
 	 end
 	 
 	 if(en_sci && !mcu_wr) begin
-	    if (mcu_ad==16'h11) ORFE <= 1'b0;	  
-	    if (mcu_ad==16'h12) RDRF <= 1'b0;	  
+	    if (mcu_ad==16'h11) clr_trcsr <= 1'b1;
+	    if (mcu_ad==16'h12) begin
+	        RDRF <= 1'b0;
+	        ORFE <= 1'b0;
+	        clr_trcsr <= 1'b0;
+	    end
 	 end
-	 
+
 	 if (mcu_wr) begin
 	    if (mcu_ad==16'h10) RMCR <= mcu_do;
 	    if (mcu_ad==16'h11) TRCSR <= mcu_do;
 	    if (mcu_ad==16'h13) begin
-	       TDRE <= 1'b0;	       
+	       if (clr_trcsr) begin
+	         TDRE <= 1'b0;
+	         clr_trcsr <= 1'b0;
+	       end
 	       TDR <= mcu_do;
 	    end
 	 end
@@ -327,7 +342,7 @@ module HD63701_SCI
    
    // bit 0 (wakeup) is cleared by the hardware after seeing 10 1's on RX,
    // we always return 0
-   wire [7:0] TRCSR_O = { RDRF, TRCSR[6], TDRE, TRCSR[4:1], 1'b0 };
+   wire [7:0] TRCSR_O = { RDRF, ORFE, TDRE, TRCSR[4:1], 1'b0 };
 
    wire       wu = TRCSR[0];   // wake up
    assign     te = TRCSR[1];   // transmitter enable
@@ -336,7 +351,7 @@ module HD63701_SCI
    wire       rie = TRCSR[4];  // receiver interrupt enable
 
    // interrupt on receive or transmit
-   assign mcu_irq0 = (rie && RDRF) || (tie && TDRE); 
+   assign mcu_irq0 = (rie && (RDRF | ORFE)) || (tie && TDRE); 
    
    assign en_sci = (mcu_ad[15:2] == 14'h004);
    assign iod = (mcu_ad==16'h10) ? RMCR :
