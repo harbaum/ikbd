@@ -258,8 +258,8 @@ module HD63701_SCI
 	 last_rx <= 1'b1;
 	 rxcnt <= 8'h00;
 	 txcnt <= 8'h00;
-	 rxsr <= 9'h000;
-	 txsr <= 9'h1ff;
+	 rxsr <= 9'h1ff;
+	 txsr <= 9'h000;
 	 tx <= 1'b1;
       end
       else begin
@@ -269,20 +269,20 @@ module HD63701_SCI
 	    // sync rx clock on first falling data (start bit)
 	    last_rx <= rx;
 	    rxcnt <= rxcnt + 1;	 
-	    if((rxsr == 9'h000) && last_rx && !rx)
+	    if((rxsr == 9'h1ff) && last_rx && !rx)
 	       rxcnt <= 8'h00;	    
 
 	    // sample serial bit in the middle of the 256 clock
 	    // cycle @ 7812.5 bit/s and shift it into rx buffer
 	    if(rxcnt == 8'd128) begin
-	       rxsr <= { !rx, rxsr[8:1] };
+	       rxsr <= { rx, rxsr[8:1] };
 	       // a full byte has been received whenever the
-	       // lowest bit would become '1' due to the start bit.
-	       // ~rx must be 0 due to stop bit, otherwise this
+	       // lowest bit would become '0' due to the start bit.
+	       // rx must be 1 due to stop bit, otherwise this
 	       // is a framing error
-	       if(rxsr[0] == 1'b1) begin
-		  if(~rx == 1'b0) begin
-		     rxsr <= 9'h000;
+	       if(rxsr[0] == 1'b0) begin
+		  if(rx == 1'b1) begin
+		     rxsr <= 9'h1ff;
 		     RDR <= rxsr[8:1];
 		     if (RDRF == 1'b1) ORFE <= 1'b1;		     
 		     RDRF <= 1'b1;
@@ -308,18 +308,18 @@ module HD63701_SCI
 
 	 txcnt <= txcnt + 1;
 	 if(txcnt == 8'hff) begin
-	    // if txsr == 0x1ff then no transmission is in progress
-	    if((txsr == 9'h1ff) && !TDRE) begin
+	    // if txsr == 0x000 then no transmission is in progress
+	    if((txsr == 9'h000) && !TDRE) begin
 	       TDRE <= 1'b1;
 	       txcnt <= 8'h00;        // start tx bit timer
-	       txsr <= { 1'b0, TDR }; // data incl stop bit
+	       txsr <= { 1'b1, TDR }; // data incl stop bit
 	       tx <= 1'b0;	      // send start bit
 	    end
 
 	    // transmit byte if txsr is not empty
-	    if(txsr != 9'h1ff) begin
-	       tx <= ~txsr[0];
-	       txsr <= { 1'b1, txsr[8:1] };
+	    if(txsr != 9'h000) begin
+	       tx <= txsr[0];
+	       txsr <= { 1'b0, txsr[8:1] };
 	    end
 	 end
       end

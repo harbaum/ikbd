@@ -37,6 +37,7 @@ unsigned char cmd_get_time[] = { 1, 0x1C };
 #define U16(a)  (a/256),(a%256)
 unsigned char cmd_request_mouse_mode[] = { 1, 0x88 };
 unsigned char cmd_set_absolute_mouse_positioning[] = { 5, 0x09, U16(640), U16(400) };
+unsigned char cmd_set_relative_mouse_positioning[] = { 1, 0x08 };
 unsigned char cmd_interrogate_mouse_position[] = { 1, 0x0D };
 unsigned char cmd_request_mouse_enable[] = { 1, 0x92 };
 unsigned char cmd_load_mouse[] = { 6, 0x0e, 0x00, U16(320), U16(200) };
@@ -92,6 +93,7 @@ unsigned char io_ps2_caps_lock_n_up[] = {
 
 unsigned char io_ps2_mouse_up_right[] = { PS2_MOUSE(BL,10,20), PS2_DONE };
 unsigned char io_ps2_mouse_down_left[] = { PS2_MOUSE(0,-20,-10), PS2_DONE };
+unsigned char io_ps2_mouse_button_right[] = { PS2_MOUSE(BR,0,0), PS2_DONE };
 
 // ========= events to be generated during simulation =========
 // Consists of time in ms when request is to be sent to ikbd
@@ -117,12 +119,23 @@ struct {
   {    1, TTEXT, (unsigned char*)"Key scan, pressing and releasing capslock and cursor up" },  
   {  200, TPS2K, io_ps2_caps_lock_n_up },
 #endif
-#if 1 // relative mouse
+#if 0 // relative mouse
 #define RUNTIME_MS 400
   {   80, TTEXT, (unsigned char*)"Test relative mouse movement" },
   {   80, TTEXT, (unsigned char*)"Should end at X:-10, Y:10" },
   {  100, TPS2M, io_ps2_mouse_up_right },
   {  250, TPS2M, io_ps2_mouse_down_left },
+  // should end at x:-10,y:10
+#endif
+#if 1 // relative mouse
+#define RUNTIME_MS 350
+  {   80, TTEXT, (unsigned char*)"Test relative mouse movement" },
+  {   80, TTEXT, (unsigned char*)"Should end at X:-10, Y:10" },
+  {   90, TSER, cmd_set_relative_mouse_positioning },
+  {  100, TPS2M, io_ps2_mouse_up_right },
+  {  200, TPS2M, io_ps2_mouse_button_right },
+  {  250, TPS2M, io_ps2_mouse_down_left },
+  {  300, TPS2M, io_ps2_mouse_button_right },
   // should end at x:-10,y:10
 #endif
 #if 0 // set/get time
@@ -229,7 +242,7 @@ void serial_do() {
 
       if(rxcnt > 1) {
 	rxsr >>= 1;
-	if(!tb->tx)
+	if(tb->tx)
 	  rxsr |= 0x80;
       } else if(tb->tx) {
 	char desc[100] = "";
@@ -343,9 +356,9 @@ void serial_do() {
 
   int bitn = sc%(10+GAP);
   int byten = sc/(10+GAP);
-  int bit = 0, n='G';
+  int bit = 1, n='G';
   if(bitn == 0) {
-    bit = 1;
+    bit = 0;
     n = 'S';
     printf("@%.2fµs IKBD TX %02x\n", tickcount/1000.0, sp[byten+1]);
   } else if(bitn < 9) {
@@ -354,7 +367,7 @@ void serial_do() {
   }
 
   // drive ikbds rx line
-  tb->rx = !bit;
+  tb->rx = bit;
 
   sc++;
   st = tickcount;
