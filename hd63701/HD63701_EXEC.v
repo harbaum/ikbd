@@ -12,7 +12,7 @@ module HD63701_EXEC
 	input			[7:0]		DI,
 	
 	output	  [15:0]		AD,
-	output reg				RW,
+	output 					RW,
 	output reg  [7:0]		DO,
 
 	input		`mcwidth		mcode,
@@ -170,13 +170,7 @@ always @( negedge CLK or posedge RST ) begin
 	end
 end
 
-wire RWRES = CLK;
-always @( negedge CLK or posedge RWRES ) begin
-	if (RWRES) RW <= 0;
-	else begin
-		RW <= ((mcr2==`mcrN)|(mcr2==`mcrM)) & (~mcnw);
-	end
-end
+assign RW = !CLK & ((mcr2==`mcrN)|(mcr2==`mcrM)) & (~mcnw);
 
 assign inte = ~rC[4];
 
