@@ -11,9 +11,8 @@ module HD63701_Core
 	input					RST,
 	input					NMI,
 	input					IRQ,
-	input					IRQ2,
-	input					IRQ0,
-	input 	 [3:0]	IRQ2V,
+	input					IRQ2_TIM,
+	input					IRQ2_SCI,
 
 	output 				RW,
 	output 	[15:0]	AD,
@@ -29,7 +28,7 @@ wire [7:0] 	  vect;
 wire		  	  inte, fncu;
 
 HD63701_SEQ   SEQ(.CLK(CLK),.RST(RST),
-						.NMI(NMI),.IRQ(IRQ),.IRQ2(IRQ2),.IRQ2V(IRQ2V),.IRQ0(IRQ0),
+						.NMI(NMI),.IRQ(IRQ),.IRQ2_TIM(IRQ2_TIM),.IRQ2_SCI(IRQ2_SCI),
 						.DI(DI),
 						.mcout(mcode),.vect(vect),.inte(inte),.fncu(fncu));
 

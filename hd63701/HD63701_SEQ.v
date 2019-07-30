@@ -13,9 +13,8 @@ module HD63701_SEQ
 	input						NMI,
 	input						IRQ,
 
-	input						IRQ0,
-	input						IRQ2,
-	input  	[3:0]			IRQ2V,
+	input						IRQ2_SCI,
+	input						IRQ2_TIM,
 
 	input 	[7:0]			DI,
 
@@ -35,14 +34,14 @@ reg  mcside;
 
 
 wire bIRQ  = IRQ & inte;
-wire bIRQ2 = IRQ2 & inte;
-wire bIRQ0 = IRQ0 & inte;
+wire bIRQ2_TIM = IRQ2_TIM & inte;
+wire bIRQ2_SCI = IRQ2_SCI & inte;
 
-wire  	   bINT = NMI|bIRQ|bIRQ2|bIRQ0;
+wire  	   bINT = NMI|bIRQ|bIRQ2_TIM|bIRQ2_SCI;
 wire [7:0] vINT = NMI ? `vaNMI :        // NMI     $fc
-	   bIRQ    ? `vaIRQ :           // ext IRQ $f8
-	   bIRQ2   ? {4'hF,IRQ2V} :     // TIM OCF $f4
-	   bIRQ0   ? 8'hf0 :            // SCI     $f0
+	   bIRQ       ? `vaIRQ :        // ext IRQ $f8
+	   bIRQ2_TIM  ? 8'hf4 :         // TIM OCF $f4
+	   bIRQ2_SCI  ? 8'hf0 :         // SCI     $f0
 	   0;
 
 reg [5:0] PHASE;

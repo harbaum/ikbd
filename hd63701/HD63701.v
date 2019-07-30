@@ -54,20 +54,19 @@ HD63701_IOPort iopt( RST, CLKx2, ADI, RW, DO, en_biio, biiod, PI1, PI2, DI, PI4,
 
 
 // Built-In Serial Communication Hardware
-wire		  irq0;
+wire		  irq2_sci;
 wire		  txd;
 wire		  te;
 wire		  en_bisci;
 wire [7:0] biscid;
-HD63701_SCI sci( RST, CLKx2, ADI, RW, DO, PI2[3], txd, te, irq0, en_bisci, biscid );
+HD63701_SCI sci( RST, CLKx2, ADI, RW, DO, PI2[3], txd, te, irq2_sci, en_bisci, biscid );
 
 
 // Built-In Timer
-wire		  irq2;
-wire [3:0] irq2v;
+wire		  irq2_tim;
 wire		  en_bitim;
 wire [7:0] bitimd;
-HD63701_Timer timer( RST, CLKx2, ADI, RW, DO, irq2, irq2v, en_bitim, bitimd );
+HD63701_Timer timer( RST, CLKx2, ADI, RW, DO, irq2_tim, en_bitim, bitimd );
 
 
 // Built-In Devices Data Selector
@@ -87,7 +86,7 @@ HD63701_BIDSEL bidsel
 HD63701_Core core
   (
    .CLKx2(CLKx2),.RST(RST),
-   .NMI(NMI),.IRQ(IRQ),.IRQ2(irq2),.IRQ2V(irq2v),.IRQ0(irq0),
+   .NMI(NMI),.IRQ(IRQ),.IRQ2_TIM(irq2_tim),.IRQ2_SCI(irq2_sci),
    .RW(RW),.AD(ADI),.DO(DO),.DI(biddi)
    );
   
@@ -225,7 +224,7 @@ module HD63701_SCI
  input 	      rx,
  output reg   tx,
  output       te,
- output       mcu_irq0,
+ output       mcu_irq2_sci,
  output       en_sci,
  output [7:0] iod
 );
@@ -349,7 +348,7 @@ module HD63701_SCI
    wire       rie = TRCSR[4];  // receiver interrupt enable
 
    // interrupt on receive or transmit
-   assign mcu_irq0 = (rie && (RDRF | ORFE)) || (tie && TDRE); 
+   assign mcu_irq2_sci = (rie && (RDRF | ORFE)) || (tie && TDRE); 
    
    assign en_sci = (mcu_ad[15:2] == 14'h004);
    assign iod = (mcu_ad==16'h10) ? RMCR :
@@ -368,8 +367,7 @@ module HD63701_Timer
 	input 		 mcu_wr,
 	input  [7:0] mcu_do,
 
-	output		 mcu_irq2,
-	output [3:0] mcu_irq2v,
+	output		 mcu_irq2_tim,
 
 	output		 en_timer,
 	output [7:0] timerd
@@ -421,8 +419,7 @@ always @( negedge mcu_clx2 or posedge mcu_rst ) begin
 	end
 end
 
-assign mcu_irq2  = oci & oce;
-assign mcu_irq2v = 4'h4;
+assign mcu_irq2_tim  = oci & oce;
 
 assign en_timer = ((mcu_ad>=16'h8)&(mcu_ad<=16'hE))|(mcu_ad==16'h14);
 
