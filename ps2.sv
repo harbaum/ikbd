@@ -138,7 +138,7 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h83) matrix[ 7][0] <= kbd_release; // F7
 			if(kbd_sr[7:0] == 8'h0a) matrix[ 8][0] <= kbd_release; // F8
 			if(kbd_sr[7:0] == 8'h01) matrix[ 9][0] <= kbd_release; // F9
-			if(kbd_sr[7:0] == 8'h09) matrix[10][0] <= kbd_release; // F0
+			if(kbd_sr[7:0] == 8'h09) matrix[10][0] <= kbd_release; // F10
 
 			// other keys
 			if(kbd_sr[7:0] == 8'h5a) matrix[11][5] <= kbd_release; // return
@@ -146,8 +146,37 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h76) matrix[ 4][1] <= kbd_release; // esc
 			if(kbd_sr[7:0] == 8'h66) matrix[11][1] <= kbd_release; // backspace
 			if(kbd_sr[7:0] == 8'h0d) matrix[ 4][3] <= kbd_release; // tab		
-			if(kbd_sr[7:0] == 8'h7c) matrix[14][1] <= kbd_release; // KP *
 
+			// keypad
+			if(kbd_sr[7:0] == 8'h7c) matrix[14][1] <= kbd_release; // KP *
+			if(kbd_sr[7:0] == 8'h7b) matrix[14][3] <= kbd_release; // KP -
+			if(kbd_sr[7:0] == 8'h79) matrix[14][5] <= kbd_release; // KP +
+			if(kbd_sr[7:0] == 8'h4a) matrix[14][0] <= kbd_release; // KP /
+			if(kbd_sr[7:0] == 8'h70) matrix[12][7] <= kbd_release; // KP 0
+			if(kbd_sr[7:0] == 8'h69) matrix[12][6] <= kbd_release; // KP 1
+			if(kbd_sr[7:0] == 8'h72) matrix[13][6] <= kbd_release; // KP 2
+			if(kbd_sr[7:0] == 8'h7a) matrix[14][6] <= kbd_release; // KP 3
+			if(kbd_sr[7:0] == 8'h6b) matrix[13][4] <= kbd_release; // KP 4
+			if(kbd_sr[7:0] == 8'h73) matrix[13][5] <= kbd_release; // KP 5
+			if(kbd_sr[7:0] == 8'h74) matrix[14][4] <= kbd_release; // KP 6
+			if(kbd_sr[7:0] == 8'h6c) matrix[13][2] <= kbd_release; // KP 7
+			if(kbd_sr[7:0] == 8'h75) matrix[13][3] <= kbd_release; // KP 8
+			if(kbd_sr[7:0] == 8'h7d) matrix[14][1] <= kbd_release; // KP 9
+			if(kbd_sr[7:0] == 8'h71) matrix[13][7] <= kbd_release; // KP .
+			
+			if(kbd_sr[7:0] == 8'h0e) matrix[10][2] <= kbd_release; // `
+			if(kbd_sr[7:0] == 8'h4e) matrix[ 9][2] <= kbd_release; // -
+			if(kbd_sr[7:0] == 8'h55) matrix[10][1] <= kbd_release; // =
+			if(kbd_sr[7:0] == 8'h54) matrix[10][3] <= kbd_release; // [			  
+			if(kbd_sr[7:0] == 8'h5b) matrix[10][4] <= kbd_release; // ]
+			if(kbd_sr[7:0] == 8'h5d) matrix[11][4] <= kbd_release; // \ 
+			if(kbd_sr[7:0] == 8'h4c) matrix[10][5] <= kbd_release; // ;
+			if(kbd_sr[7:0] == 8'h52) matrix[11][6] <= kbd_release; // ' 
+			if(kbd_sr[7:0] == 8'h41) matrix[ 9][6] <= kbd_release; // ,
+			if(kbd_sr[7:0] == 8'h49) matrix[10][6] <= kbd_release; // .
+			if(kbd_sr[7:0] == 8'h4a) matrix[11][7] <= kbd_release; // /
+			if(kbd_sr[7:0] == 8'h61) matrix[ 4][6] <= kbd_release; // EUR-2
+			
 			// modifiers
 			if(kbd_sr[7:0] == 8'h12) matrix[ 1][5] <= kbd_release; // lshift
 			if(kbd_sr[7:0] == 8'h59) matrix[10][7] <= kbd_release; // rshift
@@ -155,7 +184,6 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h14) matrix[ 0][4] <= kbd_release; // ctrl
 			if(kbd_sr[7:0] == 8'h58) matrix[10][7] <= kbd_release; // caps lock
 			
-			/* TODO: complete mapping */
 		     end else begin
 			/* extended PS keys */
 			
@@ -166,7 +194,15 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h74) matrix[12][5] <= kbd_release; // right
 
 			if(kbd_sr[7:0] == 8'h4a) matrix[14][0] <= kbd_release; // KP /
-			/* TODO: complete mapping */
+			if(kbd_sr[7:0] == 8'h5a) matrix[14][7] <= kbd_release; // KP Enter
+			
+			if(kbd_sr[7:0] == 8'h70) matrix[11][3] <= kbd_release; // Insert
+			if(kbd_sr[7:0] == 8'h6c) matrix[12][2] <= kbd_release; // Home
+			if(kbd_sr[7:0] == 8'h7d) matrix[11][0] <= kbd_release; // PageUp -> HELP
+			if(kbd_sr[7:0] == 8'h71) matrix[11][2] <= kbd_release; // Delete
+			if(kbd_sr[7:0] == 8'h7c) matrix[13][0] <= kbd_release; // PrtScr -> KP-(
+			if(kbd_sr[7:0] == 8'h69) matrix[13][1] <= kbd_release; // End -> KP-)
+			if(kbd_sr[7:0] == 8'h7a) matrix[12][0] <= kbd_release; // PageDown -> UNDO
 		     end
 		  end
 	       end
