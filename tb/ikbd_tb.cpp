@@ -93,7 +93,7 @@ unsigned char io_ps2_caps_lock_n_up[] = {
 
 unsigned char io_ps2_mouse_up_right[] = { PS2_MOUSE(BL,10,20), PS2_DONE };
 unsigned char io_ps2_mouse_down_left[] = { PS2_MOUSE(0,-20,-10), PS2_DONE };
-unsigned char io_ps2_mouse_button_right[] = { PS2_MOUSE(BR,0,0), PS2_DONE };
+unsigned char io_ps2_mouse_button_right[] = { PS2_MOUSE(BR,1,1), PS2_DONE };
 
 // ========= events to be generated during simulation =========
 // Consists of time in ms when request is to be sent to ikbd
@@ -135,7 +135,7 @@ struct {
   {  100, TPS2M, io_ps2_mouse_up_right },
   {  200, TPS2M, io_ps2_mouse_button_right },
   {  250, TPS2M, io_ps2_mouse_down_left },
-  {  300, TPS2M, io_ps2_mouse_button_right },
+  //  {  300, TPS2M, io_ps2_mouse_button_right },
   // should end at x:-10,y:10
 #endif
 #if 0 // set/get time

@@ -198,8 +198,6 @@ always @( posedge mcu_clx2 or posedge mcu_rst ) begin
    end
 end // always @ ( posedge mcu_clx2 or posedge mcu_rst )
    
-wire TRG_PI2 = (mcu_ad==16'h3);
-   
 // IO from 0x0000 to 0x0007
 assign en_io = (mcu_ad[15:3] == 13'h0);
 // only addresses 2 and 3 return data
@@ -237,11 +235,11 @@ module HD63701_SCI
    reg [7:0]  RDR;    // Receive Data Register
    reg [7:0]  TDR;    // Transmit Data Register 	     
 
-   reg 	      RDRF = 1'b0;  // receive data register full  
-   reg 	      TDRE = 1'b1;  // transmit data register empty
-   reg 	      ORFE = 1'b0;  // over run framing error
+   reg 	      RDRF;   // receive data register full  
+   reg 	      TDRE;   // transmit data register empty
+   reg 	      ORFE;   // over run framing error
    
-   reg 	      last_rx = 1'b0;
+   reg 	      last_rx;
 
    reg [8:0]  rxsr;   // receive shift register    
    reg [7:0]  rxcnt;  // 9 bit receive counter

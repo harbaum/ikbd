@@ -47,11 +47,6 @@ reg	[5:0]	rC;
 `define rV	rT[7:0]
 
 
-// trigger on certain rom addresses
-wire TRG = rP == 16'hfb39;
-wire TRG_IRQ0 = rP == 16'hfee2;
-wire TRG_IRQ2 = rP == 16'hfd9d;
-
 // ALU
 wire IsCCR   = (mcop==`mcCCB)|(mcop==`mcSCB);
 wire IsCChit = (({(rC[1]^rC[3]),rC} & mccf[6:0]) == 7'h0) ^ mccf[7];
@@ -144,7 +139,6 @@ always @( negedge CLK or posedge RST ) begin
 			`mcAPC: if (IsCChit) rP <= rP+{{8{rT[7]}},rT[7:0]};
 			`mcINT: vect <= mcva;
 			`mcLDV: rE   <= {8'hFF,mcva};
-		   //TH `mcTST: rC   <= {rC[5:3],CC[2],rC[1:0]};
 			`mcTST: rC   <= {rC[5:4],CC[3:2],rC[1:0]};
 		  default: case (mcr2)
 					`mcrA: `rA  <= RR[7:0];

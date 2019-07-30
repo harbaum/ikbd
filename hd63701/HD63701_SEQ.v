@@ -31,45 +31,23 @@ module HD63701_SEQ
 reg [7:0]   opcode;
 reg `mcwidth mcode;
 reg  mcside;
-wire TRG_AIM = opcode == 8'h71;
-wire TRG_OIM = opcode == 8'h72;
-wire TRG_EIM = opcode == 8'h75;
-wire TRG_TIM = opcode == 8'h7C;
    
 
 
-reg  pNMI, pIRQ, pIR0, pIR2;
+wire bIRQ  = IRQ & inte;
+wire bIRQ2 = IRQ2 & inte;
+wire bIRQ0 = IRQ0 & inte;
 
-reg  [3:0]  fINT;
-wire bIRQ  = fINT[2] & inte;
-wire bIRQ2 = fINT[1] & inte;
-wire bIRQ0 = fINT[0] & inte;
-
-wire  	   bINT = fINT[3]|bIRQ|bIRQ2|bIRQ0;
-wire [7:0] vINT = fINT[3] ? `vaNMI :    // NMI     $fc
+wire  	   bINT = NMI|bIRQ|bIRQ2|bIRQ0;
+wire [7:0] vINT = NMI ? `vaNMI :        // NMI     $fc
 	   bIRQ    ? `vaIRQ :           // ext IRQ $f8
 	   bIRQ2   ? {4'hF,IRQ2V} :     // TIM OCF $f4
 	   bIRQ0   ? 8'hf0 :            // SCI     $f0
 	   0;
 
-function [3:0] INTUpd;
-input [3:0] n;
-   INTUpd = n[3]?{1'b0,n[2:0]}:
-	    n[2]?{2'b00,n[1:0]}:
-	    n[1]?{3'b000,n[0]}:
-	    4'b0000;
-endfunction
-
-
 reg [5:0] PHASE;
 always @( posedge CLK or posedge RST ) begin
 	if (RST) begin
-		fINT <= 0;
-		pIRQ <= 0;
-		pNMI <= 0;
-		pIR0 <= 0;
-		pIR2 <= 0;
-
 		opcode <= 0;
 		mcode  <= 0;
 		mcside <= 0;
@@ -91,7 +69,6 @@ always @( posedge CLK or posedge RST ) begin
 						if ( bINT & (opcode[7:1]!=7'b0000111) ) begin
 							mcside <= 0;
 							mcode  <= {`mcINT,vINT,`mcrn,`mcpI,`amPC,`pcN};
-							fINT   <= INTUpd(fINT);
 						end
 						else mcside <= 1;
 					end
@@ -104,7 +81,6 @@ always @( posedge CLK or posedge RST ) begin
 							if (bINT) begin
 								mcode  <= `MC_SEI;
 								opcode <= vINT;
-								fINT   <= INTUpd(fINT);
 							end
 							else mcode <= `MC_YLD;
 						end
@@ -120,7 +96,6 @@ always @( posedge CLK or posedge RST ) begin
 						mcside <= 0;
 						if (bINT) begin
 							mcode  <= {`mcINT,vINT,`mcrn,`mcpI,`amPC,`pcN};
-							fINT   <= INTUpd(fINT);
 						end
 						else mcode <= `MC_YLD;
 					end
@@ -130,12 +105,7 @@ always @( posedge CLK or posedge RST ) begin
 
 		default:;
 		endcase // case (PHASE)
-	   
-		// Capture Interrupt signal edge
-		if ((pNMI^NMI)&NMI)   fINT[3] <= 1'b1; pNMI <= NMI;
-		if ((pIRQ^IRQ)&IRQ)   fINT[2] <= 1'b1; pIRQ <= IRQ;
-		if ((pIR2^IRQ2)&IRQ2) fINT[1] <= 1'b1; pIR2 <= IRQ2;
-		if ((pIR0^IRQ0)&IRQ0) fINT[0] <= 1'b1; pIR0 <= IRQ0;
+
 
 	end
 end
