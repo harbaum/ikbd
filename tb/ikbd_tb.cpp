@@ -61,18 +61,24 @@ unsigned char cmd_set_fire_button_monitoring[] = { 1, 0x18 };
 #define TPS2M 4
 
 #define IO_DONE           0
-#define IO_JOY(a)         1, a
+#define IO_JOY(a,b)       1, ((a?0x80:0)|b)
 #define IO_WAIT(a)        2, a
 
-unsigned char io_joy_up_n_fire[] = {
-  IO_JOY(UP),        IO_WAIT(200),
-  IO_JOY(DOWN),      IO_WAIT(200),
-  IO_JOY(DOWN|FIRE), IO_WAIT(200),
-  IO_JOY(NONE),      IO_DONE };
+unsigned char io_joy0_up_n_fire[] = {
+  IO_JOY(0,UP),        IO_WAIT(200),
+  IO_JOY(0,DOWN),      IO_WAIT(200),
+  IO_JOY(0,DOWN|FIRE), IO_WAIT(200),
+  IO_JOY(0,NONE),      IO_DONE };
 
-unsigned char io_joy_fire_on_off[] = {
-  IO_JOY(FIRE),      IO_WAIT(10),
-  IO_JOY(NONE),      IO_DONE };
+unsigned char io_joy1_up_n_fire[] = {
+  IO_JOY(1,UP),        IO_WAIT(200),
+  IO_JOY(1,DOWN),      IO_WAIT(200),
+  IO_JOY(1,DOWN|FIRE), IO_WAIT(200),
+  IO_JOY(1,NONE),      IO_DONE };
+
+unsigned char io_joy1_fire_on_off[] = {
+  IO_JOY(1,FIRE),      IO_WAIT(10),
+  IO_JOY(1,NONE),      IO_DONE };
 
 #define BL 0x01
 #define BR 0x02
@@ -89,7 +95,14 @@ unsigned char io_ps2_press_and_release_shift_e[] = {
 };
   
 unsigned char io_ps2_caps_lock_n_up[] = {
-  0x58, 0xe0, 0x75, PS2_PAUSE(100), 0xf0, 0x58, 0xe0, 0xf0, 0x75, PS2_DONE };
+  0x58, 0xe0, 0x75, PS2_PAUSE(100),
+  0xf0, 0x58, 0xe0, 0xf0, 0x75, PS2_DONE };
+
+unsigned char io_ps2_prtscr_and_break[] = {
+  0xe0, 0x12, 0xe0, 0x7c, PS2_PAUSE(100),
+  0xe0, 0xf0, 0x7c, 0xe0, 0xf0, 0x12, PS2_PAUSE(100),
+  0xe1, 0x14, 0x77, 0xe1, 0xf0, 0x14, 0xe0, 0x77, PS2_DONE
+};
 
 unsigned char io_ps2_mouse_up_right[] = { PS2_MOUSE(BL,10,20), PS2_DONE };
 unsigned char io_ps2_mouse_down_left[] = { PS2_MOUSE(0,-20,-10), PS2_DONE };
@@ -119,6 +132,12 @@ struct {
   {    1, TTEXT, (unsigned char*)"Key scan, pressing and releasing capslock and cursor up" },  
   {  200, TPS2K, io_ps2_caps_lock_n_up },
 #endif
+#if 0 // prtscr and break special ps2 code
+#define RUNTIME_MS 500
+  {    1, TTEXT, (unsigned char*)"Key scan, prtscr and break test" },  
+  {  200, TPS2K, io_ps2_prtscr_and_break },
+  // this should not cause KP-( to be reported
+#endif
 #if 0 // relative mouse
 #define RUNTIME_MS 400
   {   80, TTEXT, (unsigned char*)"Test relative mouse movement" },
@@ -127,7 +146,7 @@ struct {
   {  250, TPS2M, io_ps2_mouse_down_left },
   // should end at x:-10,y:10
 #endif
-#if 1 // relative mouse
+#if 0 // relative mouse
 #define RUNTIME_MS 350
   {   80, TTEXT, (unsigned char*)"Test relative mouse movement" },
   {   80, TTEXT, (unsigned char*)"Should end at X:-10, Y:10" },
@@ -164,7 +183,7 @@ struct {
   {   90,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$00
   {  100, TTEXT, (unsigned char*)"Joystick 1 up and fire" },
-  {  100,  TJOY, io_joy_up_n_fire },
+  {  100,  TJOY, io_joy1_up_n_fire },
   {  200,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$01
   {  400,  TSER, cmd_interrogate_joystick },
@@ -174,19 +193,21 @@ struct {
   {  800,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$00
 #endif
-#if 0 // joystick monitoring
-#define RUNTIME_MS 1000
+#if 1 // joystick monitoring
+#define RUNTIME_MS 1700
   {   80, TTEXT, (unsigned char*)"Test joystick monitoring" },
   {   80,  TSER, cmd_set_joystick_monitoring },
   {   80,  TSER, NULL },  // disable ikbd output parsing
-  {  200,  TJOY, io_joy_up_n_fire },
+  {  200,  TJOY, io_joy1_up_n_fire },
+  {  800,  TJOY, io_joy0_up_n_fire },      // should switch to joystick
+  { 1500, TPS2M, io_ps2_mouse_down_left},  // should switch back to mouse
 #endif
 #if 0 // fire button monitoring
 #define RUNTIME_MS 110
   {   80, TTEXT, (unsigned char*)"Test fire button monitoring" },
   {   80,  TSER, NULL },  // disable ikbd output parsing
   {   80,  TSER, cmd_set_fire_button_monitoring },
-  {   90,  TJOY, io_joy_fire_on_off },
+  {   90,  TJOY, io_joy1_fire_on_off },
 #endif
   {    0,     0, NULL }
 };
@@ -395,8 +416,9 @@ void joystick_do() {
   while(wp && tickcount >= wt) {
     switch(wp[wc]) {
     case 1: {  // set jpystick
-      printf("@%.2fµs JOY(%02x)\n", tickcount/1000.0, wp[wc+1]);
-      tb->joystick = wp[wc+1];
+      printf("@%.2fµs JOY(%d,%02x)\n", tickcount/1000.0, (wp[wc+1]&0x80)?1:0,wp[wc+1]&0x7f);
+      if(wp[wc+1] & 0x80) tb->joystick1 = wp[wc+1] & 0x7f;
+      else                tb->joystick0 = wp[wc+1] & 0x7f;
       wc+=2;
     } break;
     case 2:  // wait
@@ -562,6 +584,9 @@ int main(int argc, char **argv) {
   // init ikbd uart
   tb->rx = 1;
   
+  tb->joystick0 = 0;
+  tb->joystick1 = 0;
+      
   // apply reset
   ticks(5);
   tb->res = 0;

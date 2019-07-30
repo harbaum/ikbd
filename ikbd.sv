@@ -26,7 +26,8 @@ module ikbd (
 		output 	     caps_lock,
 
 	     // digital joystick with one fire button (FRLDU)
-		input [4:0]  joystick
+		input [4:0]  joystick1,  // regular joystick
+		input [4:0]  joystick0   // joystick that can replace mouse
 		);
 
    wire [7:0] 		     matrix[14:0];   
@@ -45,11 +46,36 @@ module ikbd (
 	    .mouse_atari(mouse_atari)
 	    );
 
+   // keep track of mouse/joystick0 events to switch between them
+   reg 	     mouse_active;   
+   reg [4:0] last_joystick0;
+   reg [5:0] last_mouse_atari;   
+
+   // switch between mouse and joystick
+   wire [5:0] mouse_joy = mouse_active?mouse_atari:{1'b0,joystick0};   
+
+   // detect mouse and joystick activity
+   always @(posedge clk) begin
+      if(res) begin
+	 last_joystick0 <= joystick0;
+	 last_mouse_atari <= mouse_atari;
+	 mouse_active <= 1'b1;	 
+      end else begin
+	 if(last_mouse_atari != mouse_atari) begin
+	    last_mouse_atari <= mouse_atari;
+	    mouse_active <= 1'b1;	 
+	 end else if(last_joystick0 != joystick0) begin
+	    last_joystick0 <= joystick0;
+	    mouse_active <= 1'b0;	 	    
+	 end
+      end
+   end      
+   
    // this implements the 74ls244. This is technically not needed in the FPGA since
    // in and out are seperate lines.
-   wire [7:0] pi4 = po2[0]?8'hff:~{joystick[3:0], mouse_atari[3:0]};
-   // right mouse button and joystick fire button are connected
-   wire [1:0] fire_buttons = { mouse_atari[5] | joystick[4], mouse_atari[4] };
+   wire [7:0] pi4 = po2[0]?8'hff:~{joystick1[3:0], mouse_joy[3:0]};
+   // right mouse button and joystick1 fire button are connected
+   wire [1:0] fire_buttons = { mouse_joy[5] | joystick1[4], mouse_joy[4] };
 
    // hd6301 output ports
    wire [7:0] po2, po3, po4;
@@ -58,7 +84,7 @@ module ikbd (
    assign tx = po2[4];
    // caps lock led is on P30, but isn't implemented in IKBD ROM
    assign caps_lock = po3[0];   
-   
+
    HD63701V0_M6 HD63701V0_M6 (
 			      .CLKx2(clk),
 			      .RST(res),

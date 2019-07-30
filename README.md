@@ -54,10 +54,6 @@ More test patterns can be selected in ```tb/ikbd_tb.cpp```.
 ## Current state
 
 The IKBD seems to be working completely. A ps2 keyboard and mouse
-can be parsed into input states for the hd6301. A single joystick
-is also supported on port 1.
-
-## ToDo
-
-Add the ability to switch between the mouse and a second joystick
-on ikbd port 0.
+can be parsed into input states for the hd6301. A joystick
+is also supported on port 1. A second joystick shares the input
+with the mouse.
