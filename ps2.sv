@@ -113,7 +113,7 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h2a) matrix[ 6][7] <= kbd_release; // v
 			if(kbd_sr[7:0] == 8'h1d) matrix[ 5][3] <= kbd_release; // w
 			if(kbd_sr[7:0] == 8'h22) matrix[ 5][7] <= kbd_release; // x
-			if(kbd_sr[7:0] == 8'h1c) matrix[ 7][3] <= kbd_release; // y
+			if(kbd_sr[7:0] == 8'h35) matrix[ 7][3] <= kbd_release; // y
 			if(kbd_sr[7:0] == 8'h1a) matrix[ 4][7] <= kbd_release; // z
 
 			// top number key row
@@ -161,7 +161,7 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h74) matrix[14][4] <= kbd_release; // KP 6
 			if(kbd_sr[7:0] == 8'h6c) matrix[13][2] <= kbd_release; // KP 7
 			if(kbd_sr[7:0] == 8'h75) matrix[13][3] <= kbd_release; // KP 8
-			if(kbd_sr[7:0] == 8'h7d) matrix[14][1] <= kbd_release; // KP 9
+			if(kbd_sr[7:0] == 8'h7d) matrix[14][2] <= kbd_release; // KP 9
 			if(kbd_sr[7:0] == 8'h71) matrix[13][7] <= kbd_release; // KP .
 			
 			if(kbd_sr[7:0] == 8'h0e) matrix[10][2] <= kbd_release; // `
@@ -179,14 +179,15 @@ always @(posedge clk) begin
 			
 			// modifiers
 			if(kbd_sr[7:0] == 8'h12) matrix[ 1][5] <= kbd_release; // lshift
-			if(kbd_sr[7:0] == 8'h59) matrix[10][7] <= kbd_release; // rshift
+			if(kbd_sr[7:0] == 8'h59) matrix[ 3][7] <= kbd_release; // rshift
 			if(kbd_sr[7:0] == 8'h11) matrix[ 2][6] <= kbd_release; // alt
 			if(kbd_sr[7:0] == 8'h14) matrix[ 0][4] <= kbd_release; // ctrl
 			if(kbd_sr[7:0] == 8'h58) matrix[10][7] <= kbd_release; // caps lock
-			
+
 		     end else begin
 			/* extended PS keys */
-			
+			if(kbd_sr[7:0] == 8'h14) matrix[ 0][4] <= kbd_release; // ctrl (right)
+
 			// cursor keys
 			if(kbd_sr[7:0] == 8'h75) matrix[12][1] <= kbd_release; // up
 			if(kbd_sr[7:0] == 8'h72) matrix[12][4] <= kbd_release; // down
@@ -225,7 +226,7 @@ end
    reg [1:0] 	  mouse_btn;   
    reg [1:0] 	  mouse_x_cnt;   
    reg [1:0] 	  mouse_y_cnt;   
-   reg [10:0] 	  mouse_ev_cnt;   
+   reg [9:0] 	  mouse_ev_cnt;
 
 assign mouse_atari = { mouse_btn, mouse_y_cnt, mouse_x_cnt };   
       
@@ -249,14 +250,19 @@ always @(posedge clk) begin
       // atari mouse signal generation
       mouse_x_cnt <= 2'b00;   
       mouse_y_cnt <= 2'b00;      
-      mouse_ev_cnt <= 11'd0;   
-      
+      mouse_ev_cnt <= 10'd0;
+
    end else begin
 
       // generate atari st like mouse pulses
-      // This happens at clk (2mhz) / 2048 = ~1000 steps/s
-      mouse_ev_cnt <= mouse_ev_cnt + 11'd1;
-      if(mouse_ev_cnt == 11'd0) begin
+      // This happens at clk (2mhz) / 1024 = ~2000 steps/s
+      // https://www.kernel.org/doc/Documentation/input/atarikbd.txt
+      // "The mouse port should be capable of supporting a mouse with resolution of
+      // approximately 200 counts (phase changes or 'clicks') per inch of travel. The
+      // mouse should be scanned at a rate that will permit accurate tracking at
+      // velocities up to 10 inches per second."
+      mouse_ev_cnt <= mouse_ev_cnt + 10'd1;
+      if(mouse_ev_cnt == 10'd0) begin
 	 // x direction
 	 if(mouse_x[8]) begin
 	    // mouse_x is lower than 0
