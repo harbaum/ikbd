@@ -59,6 +59,5 @@ is also supported on port 1.
 
 ## ToDo
 
-Add the last missing PS2 keyboard matrix mappings in ps2.v and
-add the ability to switch between the mouse and a second joystick
+Add the ability to switch between the mouse and a second joystick
 on ikbd port 0.
