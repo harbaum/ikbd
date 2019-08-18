@@ -266,6 +266,15 @@ module HD63701_SCI
       end
       else begin
 
+	 if(en_sci && !mcu_wr) begin
+	    if (mcu_ad==16'h11) clr_trcsr <= 1'b1;
+	    if (mcu_ad==16'h12 && clr_trcsr) begin
+	        RDRF <= 1'b0;
+	        ORFE <= 1'b0;
+	        clr_trcsr <= 1'b0;
+	    end
+	 end
+
 	 if(re) begin
 	 
 	    // sync rx clock on first falling data (start bit)
@@ -295,19 +304,6 @@ module HD63701_SCI
 		     RDR <= rxsr[8:1];
 		  end
 	       end
-	    end
-	 end
-	 
-	 if(en_sci && !mcu_wr) begin
-	    if (mcu_ad==16'h11) begin
-	       // only set clr flag if SCI is not receiving a byte in this very moment
-	       if(rxcnt != 8'd128 || rxsr[0] != 1'b0 || rx != 1'b1)
-		 clr_trcsr <= 1'b1;
-	    end
-	    if (mcu_ad==16'h12 && clr_trcsr) begin
-	        RDRF <= 1'b0;
-	        ORFE <= 1'b0;
-	        clr_trcsr <= 1'b0;
 	    end
 	 end
 
