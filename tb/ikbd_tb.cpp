@@ -47,6 +47,87 @@ unsigned char cmd_interrogate_joystick[] = { 1, 0x16 };
 unsigned char cmd_set_joystick_monitoring[] = { 2, 0x17, 5 };  // 50ms
 unsigned char cmd_set_fire_button_monitoring[] = { 1, 0x18 };
 
+unsigned char cmd_disable_mouse_and_js[] = { 2, 0x12, 0x1a };
+
+/* 
+   this is the 14 byte code download of "Froggies over the fence"
+   to address 0xb0:
+
+   00b0   0f         sei             ; disable interrupts
+   00b1   4f         clra            ; clear accu a
+   00b2   97 b5      staa b5         ; write accu a to $b5 in following cmd
+   00b4   8e ff ea   lds #ffea       ; load stack pointer with 00ea
+   00b7   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   00b9   2a fc      bpl fc (00b7)   ; bit 7 = receive data register full -> no data in RDR: loop
+   00bb   37         pshb            ; push data byte in accu B onto stack
+   00bc   20 f9      bra f9 (00b7)   ; loop
+*/
+unsigned char cmd_prepare_fotf[] = { 18, 0x20, 0x00, 0xb0, 14,
+				  0x0f, 0x4f, 0x97, 0xb5, 0x8e, 0xff, 0xea,
+				  0xdc, 0x11, 0x2a, 0xfc, 0x37, 0x20, 0xf9 };
+
+/*
+   part 1 downloaded to the ikbd by fotf
+
+   00bd 00           ; overwrittes bra offset in bootloader, so execution continues here: 
+
+   00be dc b7        ldd b7      ; copy bootloader b7/b8 to 80/81
+   00c0 dd 80        std 80
+   00c2 dc b9        ldd b9      ; copy bootloader b9/ba to 82/83
+   00c4 dd 82        std 82
+   00c6 86 53        ldaa #53    ; insert "comb" instruction at 84
+   00c8 97 84        staa #84
+   00ca dc bb        ldd bb      ; copy bootloader bb/bc to 85/86
+   00cc dd 85        std 85
+   00ce 86 f8        ldaa #f8    ; expand branch by 1 for addition comb inst
+   00d0 97 87        staa #87
+
+   00d2 cc 00 01     ldd #0001
+   00d5 dd 00        std 00
+   00d7 cc ff ff     ldd #ffff
+   00da dd 04        std 04
+   00dc cc ff df     ldd #ffdf
+   00df dd 06        std 06
+   00e1 4f           clra
+   00e2 5f           clrb
+   00e3 dd 0b        std 0b
+   00e5 8e 00 ff     lds #00ff   ; init stack pointer to $ff
+   00e8 7e 00 80     jmp 0080    ; jump to new bootloader at 80
+ */
+
+unsigned char cmd_download_fotf_part1[] = { 46, // 167, 
+				      0x80, 0x00, 0x7e, 0xff, 0x00, 0x8e, 0x0b, 0xdd,  // 00-07
+				      0x5f, 0x4f, 0x06, 0xdd, 0xdf, 0xff, 0xcc, 0x04,  // 08-0f
+				      0xdd, 0xff, 0xff, 0xcc, 0x00, 0xdd, 0x01, 0x00,  // 10-17
+				      0xcc, 0x87, 0x97, 0xf8, 0x86, 0x85, 0xdd, 0xbb,  // 18-1f
+				      0xdc, 0x84, 0x97, 0x53, 0x86, 0x82, 0xdd, 0xb9,  // 20-27
+				      0xdc, 0x80, 0xdd, 0xb7, 0xdc, 0x00 };            // 28-3d
+
+unsigned char cmd_download_fotf_part2[] = { 121,
+				      0xf7, 0x7f, 0xfe, 0xef, 0xef, 0xdf, 0xfd, 0xf7,
+				      0xc6, 0x7f, 0x18, 0xff, 0x36, 0xbb, 0xff, 0x3d,
+				      0xbb, 0x7f, 0x19, 0xff, 0x72, 0x61, 0xdf, 0x0f,
+				      0xd9, 0xf6, 0xec, 0x68, 0x7d, 0x65, 0x80, 0x7b,
+				      0x80, 0x59, 0x04, 0xd8, 0xee, 0xdf, 0x84, 0xff,
+				      0x0f, 0x81, 0xfc, 0xd5, 0xa2, 0xc5, 0x43, 0xd5,
+				      0xee, 0x23, 0xe0, 0x72, 0xf6, 0xdd, 0x72, 0x44,
+				      0x67, 0x44, 0x28, 0xf8, 0x29, 0xe4, 0xab, 0xb7,
+				      0xef, 0xf5, 0x3b, 0xe9, 0xff, 0x79, 0xce, 0x72,
+				      0xf7, 0xcb, 0x72, 0xfa, 0x93, 0xfc, 0x95, 0x7d,
+				      0x28, 0xa0, 0xfe, 0xd8, 0xfc, 0xfd, 0x84, 0xf9,
+				      0xd5, 0xfd, 0x92, 0x7f, 0x39, 0x08, 0xd9, 0xf6,
+				      0x04, 0x55, 0xfd, 0xd9, 0x08, 0x1a, 0xfd, 0x29,
+				      0xfb, 0xff, 0x31, 0xb0, 0xfa, 0x68, 0xfc, 0x68,
+				      0x00, 0x79, 0x7e, 0x68, 0x7f, 0x68, 0xb0, 0xce,
+				      0xff };
+
+// foft requests 1 and 4
+unsigned char cmd_fotf_req1[] = { 1, 0x01 };
+unsigned char cmd_fotf_req4[] = { 1, 0x04 };
+
+/* pause all communication and execute at 0x00b0 */
+unsigned char cmd_exec_fotf[] = { 4, 0x13, 0x22, 0x00, 0xb0 };
+
 #define NONE  (0)
 #define UP    (1<<0)
 #define DOWN  (1<<1)
@@ -97,6 +178,10 @@ unsigned char io_ps2_press_and_release_shift_e[] = {
 unsigned char io_ps2_caps_lock_n_up[] = {
   0x58, 0xe0, 0x75, PS2_PAUSE(100),
   0xf0, 0x58, 0xe0, 0xf0, 0x75, PS2_DONE };
+
+unsigned char io_ps2_cursor_up[] = {
+  0xe0, 0x75, PS2_PAUSE(100),
+  0xe0, 0xf0, 0x75, PS2_DONE };
 
 unsigned char io_ps2_prtscr_and_break[] = {
   0xe0, 0x12, 0xe0, 0x7c, PS2_PAUSE(100),
@@ -193,7 +278,7 @@ struct {
   {  800,  TSER, cmd_interrogate_joystick },
   // reply: $fd,$00,$00
 #endif
-#if 1 // joystick monitoring
+#if 0 // joystick monitoring
 #define RUNTIME_MS 1700
   {   80, TTEXT, (unsigned char*)"Test joystick monitoring" },
   {   80,  TSER, cmd_set_joystick_monitoring },
@@ -209,8 +294,23 @@ struct {
   {   80,  TSER, cmd_set_fire_button_monitoring },
   {   90,  TJOY, io_joy1_fire_on_off },
 #endif
+#if 1 // froggies over the fence
+#define RUNTIME_MS 1700
+  {   80, TTEXT, (unsigned char*)"Froggies over the fence" },
+  {   80,  TSER, cmd_disable_mouse_and_js },
+  {  100,  TSER, cmd_prepare_fotf },
+  {  200,  TSER, cmd_exec_fotf },
+  {  300,  TSER, cmd_download_fotf_part1 },
+  {  370,  TSER, cmd_download_fotf_part2 },
+  {  700,  TSER, cmd_fotf_req1 },
+  {  800,  TSER, cmd_fotf_req4 },
+  //  {  300,  TJOY, io_joy1_fire_on_off },
+  // {  400, TPS2K, io_ps2_cursor_up },
+#endif
   {    0,     0, NULL }
 };
+
+unsigned 
 
 // serial signal generation
 int st = 0;
