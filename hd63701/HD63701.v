@@ -243,7 +243,7 @@ module HD63701_SCI
    reg [8:0]  rxsr;   // receive shift register    
    reg [7:0]  rxcnt;  // 9 bit receive counter
    
-   reg [7:0]  txcnt;  // 9 bit transmit counter
+   reg [11:0] txcnt;  // 12 bit transmit counter
    reg [8:0]  txsr;
    reg        clr_trcsr;
       
@@ -259,7 +259,7 @@ module HD63701_SCI
 	 clr_trcsr <= 1'b0;
 	 last_rx <= 1'b1;
 	 rxcnt <= 8'h00;
-	 txcnt <= 8'h00;
+	 txcnt <= 12'h000;
 	 rxsr <= 9'h1ff;
 	 txsr <= 9'h000;
 	 tx <= 1'b1;
@@ -320,11 +320,13 @@ module HD63701_SCI
 	 end
 
 	 txcnt <= txcnt + 1;
-	 if(txcnt == 8'hff) begin
+	 if(txcnt == 12'haff) txcnt <= 12'h000;
+	 if(txcnt[7:0] == 8'hff) begin
 	    // if txsr == 0x000 then no transmission is in progress
-	    if((txsr == 9'h000) && !TDRE) begin
+	    // start the transmission only at specific time slots
+	    if((txsr == 9'h000) && !TDRE && txcnt == 12'haff) begin
 	       TDRE <= 1'b1;
-	       txcnt <= 8'h00;        // start tx bit timer
+	       txcnt <= 12'h000;        // start tx bit timer
 	       txsr <= { 1'b1, TDR }; // data incl stop bit
 	       tx <= 1'b0;	      // send start bit
 	    end
