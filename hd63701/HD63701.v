@@ -243,7 +243,7 @@ module HD63701_SCI
    reg [8:0]  rxsr;   // receive shift register    
    reg [7:0]  rxcnt;  // 9 bit receive counter
    
-   reg [7:0]  txcnt;  // 9 bit transmit counter
+   reg [11:0] txcnt;  // 12 bit transmit counter
    reg [8:0]  txsr;
    reg        clr_trcsr;
       
@@ -259,12 +259,21 @@ module HD63701_SCI
 	 clr_trcsr <= 1'b0;
 	 last_rx <= 1'b1;
 	 rxcnt <= 8'h00;
-	 txcnt <= 8'h00;
+	 txcnt <= 12'h000;
 	 rxsr <= 9'h1ff;
 	 txsr <= 9'h000;
 	 tx <= 1'b1;
       end
       else begin
+
+	 if(en_sci && !mcu_wr) begin
+	    if (mcu_ad==16'h11) clr_trcsr <= 1'b1;
+	    if (mcu_ad==16'h12 && clr_trcsr) begin
+	        RDRF <= 1'b0;
+	        ORFE <= 1'b0;
+	        clr_trcsr <= 1'b0;
+	    end
+	 end
 
 	 if(re) begin
 	 
@@ -297,19 +306,6 @@ module HD63701_SCI
 	       end
 	    end
 	 end
-	 
-	 if(en_sci && !mcu_wr) begin
-	    if (mcu_ad==16'h11) begin
-	       // only set clr flag if SCI is not receiving a byte in this very moment
-	       if(rxcnt != 8'd128 || rxsr[0] != 1'b0 || rx != 1'b1)
-		 clr_trcsr <= 1'b1;
-	    end
-	    if (mcu_ad==16'h12 && clr_trcsr) begin
-	        RDRF <= 1'b0;
-	        ORFE <= 1'b0;
-	        clr_trcsr <= 1'b0;
-	    end
-	 end
 
 	 if (mcu_wr) begin
 	    if (mcu_ad==16'h10) RMCR <= mcu_do;
@@ -324,11 +320,13 @@ module HD63701_SCI
 	 end
 
 	 txcnt <= txcnt + 1;
-	 if(txcnt == 8'hff) begin
+	 if(txcnt == 12'haff) txcnt <= 12'h000;
+	 if(txcnt[7:0] == 8'hff) begin
 	    // if txsr == 0x000 then no transmission is in progress
-	    if((txsr == 9'h000) && !TDRE) begin
+	    // start the transmission only at specific time slots
+	    if((txsr == 9'h000) && !TDRE && txcnt == 12'haff) begin
 	       TDRE <= 1'b1;
-	       txcnt <= 8'h00;        // start tx bit timer
+	       txcnt <= 12'h000;        // start tx bit timer
 	       txsr <= { 1'b1, TDR }; // data incl stop bit
 	       tx <= 1'b0;	      // send start bit
 	    end
