@@ -59,7 +59,7 @@ unsigned char cmd_disable_mouse_and_js[] = { 2, 0x12, 0x1a };
    00b1   4f         clra            ; clear accu a
    00b2   97 b5      staa b5         ; write accu a to $b5 in following cmd
    00b4   8e ff ea   lds #ffea       ; load stack pointer with 00ea
-   00b7   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   00b7   dc 11      ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    00b9   2a fc      bpl fc (00b7)   ; bit 7 = receive data register full -> no data in RDR: loop
    00bb   37         pshb            ; push data byte in accu B onto stack
    00bc   20 f9      bra f9 (00b7)   ; loop
@@ -99,7 +99,7 @@ unsigned char cmd_prepare_fotf[] = {
 
    At this point the loader at 80 looks like this:
 
-   0080   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   0080   dc 11      ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    0082   2a fc      bpl fc (0080)   ; bit 7 = receive data register full -> no data in RDR: loop
    0084   53         comb
    0085   37         pshb            ; push data byte in accu B onto stack
@@ -167,7 +167,7 @@ unsigned char cmd_download_fotf_part1[] = {
    00c9 8d 22        bsr 22 (00ed)
    00cb 09           dex
    00cc 8d 1f        bsr 1f (00ed)
-   00ce dc 11        ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   00ce dc 11        ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    00d0 2a bc        bpl bc (008e)   ; bit 7 = receive data register full -> no data in RDR: loop
    00d2 3a           abx
    00d3 5d           tstb
@@ -240,7 +240,7 @@ unsigned char cmd_exec_fotf[] = { 4, 0x13, 0x22, 0x00, 0xb0 };
    00a1   4f         clra            ; clear accu a
    00a2   97 a5      staa a5         ; write accu a to $a5 in following cmd
    00a4   8e ff ff   lds #ffff       ; load stack pointer with 00ff
-   00a7   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   00a7   dc 11      ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    00a9   2a fc      bpl fc (00b7)   ; bit 7 = receive data register full -> no data in RDR: loop
    00ab   37         pshb            ; push data byte in accu B onto stack
    00ac   20 f9      bra f9 (00b7)   ; loop
@@ -277,7 +277,7 @@ unsigned char cmd_prepare_dragonnels[] = {
    00d0   9b f0      adda f0
    00d2   9b f0      adda f0
    00d4   97 ee      staa ee
-   00d6   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   00d6   dc 11      ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    00d8   2a d8      bpl d8 (00b2)   ; bit 7 = receive data register full -> no data in RDR: loop
    00da   86 80      ldaa #80
    00dc   d6 03      ldab 03
