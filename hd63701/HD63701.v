@@ -245,7 +245,8 @@ module HD63701_SCI
    
    reg [11:0] txcnt;  // 12 bit transmit counter
    reg [8:0]  txsr;
-   reg        clr_trcsr;
+   reg        clr_rd;
+   reg        clr_td;
       
    always @( posedge mcu_clx2 or posedge mcu_rst ) begin
       if (mcu_rst) begin
@@ -256,7 +257,8 @@ module HD63701_SCI
 	 TDRE  <= 1'b1;
 	 RDRF  <= 1'b0;
 	 ORFE  <= 1'b0;
-	 clr_trcsr <= 1'b0;
+	 clr_rd <= 1'b0;
+	 clr_td <= 1'b0;
 	 last_rx <= 1'b1;
 	 rxcnt <= 8'h00;
 	 txcnt <= 12'h000;
@@ -267,11 +269,11 @@ module HD63701_SCI
       else begin
 
 	 if(en_sci && !mcu_wr) begin
-	    if (mcu_ad==16'h11) clr_trcsr <= 1'b1;
-	    if (mcu_ad==16'h12 && clr_trcsr) begin
+	    if (mcu_ad==16'h11) {clr_rd, clr_td} <= 2'b11;
+	    if (mcu_ad==16'h12 && clr_rd) begin
 	        RDRF <= 1'b0;
 	        ORFE <= 1'b0;
-	        clr_trcsr <= 1'b0;
+	        clr_rd <= 1'b0;
 	    end
 	 end
 
@@ -297,7 +299,7 @@ module HD63701_SCI
 		     if (RDRF == 1'b1) ORFE <= 1'b1; // overrun error, data is not transferred to RDR
 		     else RDR <= rxsr[8:1];
 		     RDRF <= 1'b1;
-		     clr_trcsr <= 1'b0;
+		     clr_rd <= 1'b0;
 		  end else begin
 		     ORFE <= 1'b1;
 		     // framing error, data is transferred to RDR
@@ -311,9 +313,9 @@ module HD63701_SCI
 	    if (mcu_ad==16'h10) RMCR <= mcu_do;
 	    if (mcu_ad==16'h11) TRCSR <= mcu_do;
 	    if (mcu_ad==16'h13) begin
-	       if (clr_trcsr) begin
+	       if (clr_td) begin
 	         TDRE <= 1'b0;
-	         clr_trcsr <= 1'b0;
+	         clr_td <= 1'b0;
 	       end
 	       TDR <= mcu_do;
 	    end
@@ -329,6 +331,7 @@ module HD63701_SCI
 	       txcnt <= 12'h000;        // start tx bit timer
 	       txsr <= { 1'b1, TDR }; // data incl stop bit
 	       tx <= 1'b0;	      // send start bit
+	       clr_td <= 1'b0;
 	    end
 
 	    // transmit byte if txsr is not empty
