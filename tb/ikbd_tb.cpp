@@ -69,17 +69,17 @@ unsigned char cmd_prepare_fotf[] = { 18, 0x20, 0x00, 0xb0, 14,
 /*
    part 1 downloaded to the ikbd by fotf
 
-   00bd 00           ; overwrittes bra offset in bootloader, so execution continues here: 
+   00bd 00           ; overwrites bra offset in loader, so execution continues here: 
 
-   00be dc b7        ldd b7      ; copy bootloader b7/b8 to 80/81
+   00be dc b7        ldd b7          ; copy loader b7/b8 to 80/81
    00c0 dd 80        std 80
-   00c2 dc b9        ldd b9      ; copy bootloader b9/ba to 82/83
+   00c2 dc b9        ldd b9          ; copy loader b9/ba to 82/83
    00c4 dd 82        std 82
-   00c6 86 53        ldaa #53    ; insert "comb" instruction at 84
+   00c6 86 53        ldaa #53        ; insert "comb" instruction at 84
    00c8 97 84        staa #84
-   00ca dc bb        ldd bb      ; copy bootloader bb/bc to 85/86
+   00ca dc bb        ldd bb          ; copy loader bb/bc to 85/86
    00cc dd 85        std 85
-   00ce 86 f8        ldaa #f8    ; expand branch by 1 for addition comb inst
+   00ce 86 f8        ldaa #f8        ; expand branch by 1 for addition comb inst
    00d0 97 87        staa #87
 
    00d2 cc 00 01     ldd #0001
@@ -91,8 +91,16 @@ unsigned char cmd_prepare_fotf[] = { 18, 0x20, 0x00, 0xb0, 14,
    00e1 4f           clra
    00e2 5f           clrb
    00e3 dd 0b        std 0b
-   00e5 8e 00 ff     lds #00ff   ; init stack pointer to $ff
-   00e8 7e 00 80     jmp 0080    ; jump to new bootloader at 80
+   00e5 8e 00 ff     lds #00ff       ; init stack pointer to $ff
+   00e8 7e 00 80     jmp 0080        ; jump to new loader at 80
+
+   At this point the loader at 80 looks like this:
+
+   0080   dc 11      ldd 11          ; read 16 bit TRCSR and RDR und accu A and B
+   0082   2a fc      bpl fc (0080)   ; bit 7 = receive data register full -> no data in RDR: loop
+   0084   53         comb
+   0085   37         pshb            ; push data byte in accu B onto stack
+   0086   20 f8      bra f8 (0080)   ; loop
  */
 
 unsigned char cmd_download_fotf_part1[] = { 46, // 167, 
@@ -102,6 +110,94 @@ unsigned char cmd_download_fotf_part1[] = { 46, // 167,
 				      0xcc, 0x87, 0x97, 0xf8, 0x86, 0x85, 0xdd, 0xbb,  // 18-1f
 				      0xdc, 0x84, 0x97, 0x53, 0x86, 0x82, 0xdd, 0xb9,  // 20-27
 				      0xdc, 0x80, 0xdd, 0xb7, 0xdc, 0x00 };            // 28-3d
+/*
+   part 2 downloaded to the ikbd by fotf
+
+   0087 00           ; overwrites bra offset in loader, so execution continues here: 
+   0088 31           ins             ; increment stack pointer to 87
+   0089 4f           clra
+   008a 97 80        staa 80         ; clear $80 (delta Y)
+   008c 97 81        staa 81         ; clear $81 (delat X)
+
+   ;;
+   008e 86 ff        ldaa #ff
+   0090 97 03        staa 03         ; P2 = 0xff -> LS244 off
+   0092 97 05        staa 05         ; DDR4=ff -> P4 = output
+
+   ;; read cusor keys
+   ;; P4.5 should be low for this to work ...
+   0094 4f           clra            ; clear accu a
+   0095 ce 00 04     ldx #0004
+   0098 d6 02        ldab 02         ; read P1 into accu b
+   009a e5 f7        bitb f7,x       ; test acuu b bit [1]:08/[2]:02/[3]:20/[4]:10
+   009c 26 02        bne 02 (00a0)   ; bit set -> continue
+   009e aa fb        ora fb,x        ; bit clear -> set accu a [1]:10/[2]:01/[3]:80/[4]:08
+   00a0 09           dex             ; x = x - 1
+   00a1 26 f7        bne f7 (009a)   ; loop while x > 0
+
+   ;; accu a now contains a map with keys: R00LD00U
+
+   00a3 c6 80        ldab #80
+   00a5 6d 02        tst 02,x
+   00a7 2a 06        bpl 06 (00af)
+   00a9 7b 02 03     tim #02,03
+   00ac 27 01        beq 01 (00af)
+   00ae 5f           clrb
+   00af d7 82        stab 82
+   00b1 6a 03        dec 03,x
+   00b3 6c 05        inc 05,x
+   00b5 8d 34        bsr 34 (00eb)
+   00b7 08           inx
+   00b8 8d 31        bsr 31 (00eb)
+   00ba 86 00        ldaa #00
+   00bc 16           tab
+   00bd c4 0a        andb #0a
+   00bf 10           sba
+   00c0 48           asla
+   00c1 54           lsrb
+   00c2 1b           aba
+   00c3 d6 07        ldab 07
+   00c5 d7 bb        stab bb
+   00c7 98 bb        eora bb
+   00c9 8d 22        bsr 22 (00ed)
+   00cb 09           dex
+   00cc 8d 1f        bsr 1f (00ed)
+   00ce dc 11        ldd 11
+   00d0 2a bc        bpl bc (008e)
+   00d2 3a           abx
+   00d3 5d           tstb
+   00d4 2a 03        bpl 03 (00d9)
+   00d6 7e f0 00     jmp f000        ; jump into original rom
+   00d9 7b 20 11     tim #20,11
+   00dc 27 fb        beq fb (00d9)
+   00de a6 7f        ldaa 7f,x
+   00e0 84 7f        anda #7f
+   00e2 9a 82        oraa 82
+   00e4 97 13        staa 13
+   00e6 09           dex
+   00e7 26 f0        bne f0 (00d9)
+   00e9 20 9e        bra 9e (0089)
+   00eb 8d 00        bsr 00 (00ed)
+   00ed e6 80        ldab 80,x
+   00ef 44           lsra
+   00f0 c2 00        sbcb #00
+   00f2 44           lsra 
+   00f3 c9 00        adcb #00
+   00f5 e7 80        stab 80,x
+   00f7 39           rts
+
+   ;; index of cursor keys within column
+   00f8 08                           ; cursor left on P13
+   00f9 02                           ; cursor up on P11
+   00fa 20                           ; cursor right on P15
+   00fb 10                           ; cursor down on P14
+
+   ;; bits set on cursor keys
+   00fc 10
+   00fd 01
+   00fe 80
+   00ff 08
+ */
 
 unsigned char cmd_download_fotf_part2[] = { 121,
 				      0xf7, 0x7f, 0xfe, 0xef, 0xef, 0xdf, 0xfd, 0xf7,
@@ -121,7 +217,7 @@ unsigned char cmd_download_fotf_part2[] = { 121,
 				      0x00, 0x79, 0x7e, 0x68, 0x7f, 0x68, 0xb0, 0xce,
 				      0xff };
 
-// foft requests 1 and 4
+// fotf requests 1 and 4
 unsigned char cmd_fotf_req1[] = { 1, 0x01 };
 unsigned char cmd_fotf_req4[] = { 1, 0x04 };
 
@@ -297,6 +393,7 @@ struct {
 #if 1 // froggies over the fence
 #define RUNTIME_MS 1700
   {   80, TTEXT, (unsigned char*)"Froggies over the fence" },
+  {   80,  TSER, NULL },  // disable ikbd output parsing
   {   80,  TSER, cmd_disable_mouse_and_js },
   {  100,  TSER, cmd_prepare_fotf },
   {  200,  TSER, cmd_exec_fotf },
@@ -305,7 +402,9 @@ struct {
   {  700,  TSER, cmd_fotf_req1 },
   {  800,  TSER, cmd_fotf_req4 },
   //  {  300,  TJOY, io_joy1_fire_on_off },
-  // {  400, TPS2K, io_ps2_cursor_up },
+  {  1000, TPS2K, io_ps2_cursor_up },
+  {  1100,  TSER, cmd_fotf_req1 },
+  {  1200,  TSER, cmd_fotf_req4 },
 #endif
   {    0,     0, NULL }
 };
@@ -659,6 +758,10 @@ void ticks(int c) {
 }
 
 int main(int argc, char **argv) {
+  //  for(int i=1;i<sizeof(cmd_download_fotf_part2);i++)
+  //    printf("   %04x %02x\n", 255-121+i, 0xff & ~cmd_download_fotf_part2[sizeof(cmd_download_fotf_part2)-i]);
+  //  exit(1);
+  
   // Initialize Verilators variables
   Verilated::commandArgs(argc, argv);
   //	Verilated::debug(1);
