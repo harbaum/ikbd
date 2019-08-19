@@ -264,36 +264,44 @@ unsigned char cmd_prepare_dragonnels[] = {
    00bc   c4 33      andb #33
    00be   1b         aba
    00bf   16         tab
-   00c0   84 0f      anda #0f
-   00c2   8b f0      adda #f0
-   00c4   97 d3      staa d3
-   00c6   54         lsrb
+   00c0   84 0f      anda #0f        ; build table offset
+   00c2   8b f0      adda #f0        ; -"-
+   00c4   97 d3      staa d3         ; write table offset as parameter of adda instr at d3
+   00c6   54         lsrb            ; move upper nibble down, clear upper nibble
    00c7   54         lsrb
    00c8   54         lsrb
    00c9   54         lsrb
-   00ca   cb f0      addb #f0
-   00cc   d7 d1      stab d1
+   00ca   cb f0      addb #f0        ; build table offset
+   00cc   d7 d1      stab d1         ; write table offset as parameter of adda instr at d1
+
+   ;; update mouse delta
    00ce   96 ee      ldaa ee
-   00d0   9b f0      adda f0
-   00d2   9b f0      adda f0
+   00d0   9b f0      adda f0         ; address modified previously
+   00d2   9b f0      adda f0         ; address modified previously
    00d4   97 ee      staa ee
+
+   ;; check for incoming byte
    00d6   dc 11      ldd 11          ; read 16 bit TRCSR and RDR into accu A and B
    00d8   2a d8      bpl d8 (00b2)   ; bit 7 = receive data register full -> no data in RDR: loop
-   00da   86 80      ldaa #80
-   00dc   d6 03      ldab 03
-   00de   54         lsrb
-   00df   d4 03      anda 03
-   00e1   c4 02      andb #02
-   00e3   27 02      beq 02 (00e7)
-   00e5   96 ee      ldaa ee
+
+   ;; byte received
+   00da   86 80      ldaa #80        ; assume "button pressed"
+   00dc   d6 03      ldab 03         ; read p2 incl. the left mouse button on p21
+   00de   54         lsrb            ; shift down one bit
+   00df   d4 03      andb 03         ; and with p2 again, or'ing the low state of the fire buttons
+   00e1   c4 02      andb #02        ; mask button state
+   00e3   27 02      beq 02 (00e7)   ; button pressed? -> send #80
+   00e5   96 ee      ldaa ee         ; otherwise load mouse delta into accu a
    00e7   97 13      staa 13         ; send accu a
    00e9   4f         clra
-   00ea   97 ee      staa ee         ; clr ee
-   00ec   20 c4      bra c4 (00b2)   ; repeat
+   00ea   97 ee      staa ee         ; clear mouse movement
+   00ec   20 c4      bra c4 (00b2)   ; repeat everything
 
-   00ee   00 00 00 01 ff 00 ff 00
-   00f6   00 01 01 00 00 ff 00 ff
-   00fe   01 00
+   00ee   00                         ; saved movement byte
+   00ef   00                         ; previous p4 input state
+
+   00f0   00 01 ff 00 ff 00 00 01
+   00f8   01 00 00 ff 00 ff 01 00
  */
 
 unsigned char cmd_download_dragonnels[] = {
@@ -507,12 +515,14 @@ struct {
   {  100,  TSER, cmd_prepare_dragonnels },
   {  200,  TSER, cmd_exec_dragonnels },
   {  300,  TSER, cmd_download_dragonnels },
+  {  600, TTEXT, (unsigned char*)"No mouse action -> reply should be 00" },
   {  600,  TSER, cmd_request_dragonnels },
+  {  610, TPS2M, io_ps2_mouse_up_right },
+  {  620, TTEXT, (unsigned char*)"Mouse button pressed -> reply should be 80" },
+  {  620,  TSER, cmd_request_dragonnels },
 #endif
   {    0,     0, NULL }
 };
-
-unsigned 
 
 // serial signal generation
 int st = 0;
