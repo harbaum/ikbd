@@ -12,7 +12,9 @@ module ps2 (
 	    
  input 		  mouse_clk,
  input 		  mouse_data,
- output [5:0] 	  mouse_atari
+ output [5:0] 	  mouse_atari,
+
+ output reg joy_port_toggle // F11
 );
 
 // --------- registers for keyboard decoding ---------
@@ -38,6 +40,8 @@ always @(posedge clk) begin
       kbd_release <= 1'b0;      
       kbd_ext <= 1'b0;      
       
+      joy_port_toggle <= 1'b0;
+
       // reset entire matrix to 1's
       matrix[ 0] <= 8'hff; matrix[ 1] <= 8'hff; matrix[ 2] <= 8'hff; matrix[ 3] <= 8'hff;
       matrix[ 4] <= 8'hff; matrix[ 5] <= 8'hff; matrix[ 6] <= 8'hff; matrix[ 7] <= 8'hff;
@@ -139,6 +143,7 @@ always @(posedge clk) begin
 			if(kbd_sr[7:0] == 8'h0a) matrix[ 8][0] <= kbd_release; // F8
 			if(kbd_sr[7:0] == 8'h01) matrix[ 9][0] <= kbd_release; // F9
 			if(kbd_sr[7:0] == 8'h09) matrix[10][0] <= kbd_release; // F10
+			if(kbd_sr[7:0] == 8'h78 && kbd_release) joy_port_toggle <= ~joy_port_toggle; // F11
 
 			// other keys
 			if(kbd_sr[7:0] == 8'h5a) matrix[11][5] <= kbd_release; // return

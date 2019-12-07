@@ -27,7 +27,9 @@ module ikbd (
 
 	     // digital joystick with one fire button (FRLDU)
 		input [4:0]  joystick1,  // regular joystick
-		input [4:0]  joystick0   // joystick that can replace mouse
+		input [4:0]  joystick0,  // joystick that can replace mouse
+		output 	     joy_port_toggle // signal to toggle between normal and STe joy ports
+
 		);
 
    wire [7:0] 		     matrix[14:0];   
@@ -43,7 +45,8 @@ module ikbd (
 
 	    .mouse_clk(ps2_mouse_clk),
 	    .mouse_data(ps2_mouse_data),
-	    .mouse_atari(mouse_atari)
+	    .mouse_atari(mouse_atari),
+	    .joy_port_toggle(joy_port_toggle)
 	    );
 
    // keep track of mouse/joystick0 events to switch between them
