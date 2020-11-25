@@ -24,7 +24,9 @@ module ps2 (
    reg 		  kbd_parity;
    reg 		  kbd_release;   // 0xf0 release code received
    reg 		  kbd_ext;       // 0xe0 extended code received
-   
+
+   reg 		  mouse_z_up_d, mouse_z_down_d;
+
 always @(posedge clk) begin
     
    if (reset === 1'b1) begin
@@ -42,6 +44,9 @@ always @(posedge clk) begin
       
       joy_port_toggle <= 1'b0;
 
+      mouse_z_up_d <= 1'b0;
+      mouse_z_down_d <= 1'b0;
+
       // reset entire matrix to 1's
       matrix[ 0] <= 8'hff; matrix[ 1] <= 8'hff; matrix[ 2] <= 8'hff; matrix[ 3] <= 8'hff;
       matrix[ 4] <= 8'hff; matrix[ 5] <= 8'hff; matrix[ 6] <= 8'hff; matrix[ 7] <= 8'hff;
@@ -49,7 +54,13 @@ always @(posedge clk) begin
       matrix[12] <= 8'hff; matrix[13] <= 8'hff; matrix[14] <= 8'hff;      
       
    end else begin
-      
+      // mouse wheel keyboard emulation
+      mouse_z_up_d <= mouse_z_up;
+      mouse_z_down_d <= mouse_z_down;
+
+      if (mouse_z_up ^ mouse_z_up_d) matrix[12][1] <= ~mouse_z_up; // up
+      if (mouse_z_down ^ mouse_z_down_d) matrix[12][4] <= ~mouse_z_down; // down
+
       //  Clear flags
       kbd_last_clk <= kbd_clk;
             
@@ -64,14 +75,14 @@ always @(posedge clk) begin
 	    
             //  This is a start bit
             if (kbd_data == 1'b0)
-               kbd_bit_cnt <= kbd_bit_cnt + 'd1;
+               kbd_bit_cnt <= kbd_bit_cnt + 1'd1;
 	    
 	 end else begin
 	    
             if (kbd_bit_cnt < 10) begin
 	       
                //  Shift in data and parity (9 bits)
-               kbd_bit_cnt <= kbd_bit_cnt + 1;
+               kbd_bit_cnt <= kbd_bit_cnt + 1'd1;
                kbd_sr <= {kbd_data, kbd_sr[8:1]};
                kbd_parity <= kbd_parity ^ kbd_data;
                
@@ -226,10 +237,13 @@ end
    reg [1:0] 	  mouse_state;
    reg [8:0] 	  mouse_x;
    reg [8:0] 	  mouse_y;
+   reg [8:0] 	  mouse_z;
    reg [1:0] 	  mouse_sign;   
    reg [1:0] 	  mouse_btn;   
    reg [1:0] 	  mouse_x_cnt;   
    reg [1:0] 	  mouse_y_cnt;   
+   reg  	  mouse_z_up;
+   reg  	  mouse_z_down;
    reg [9:0] 	  mouse_ev_cnt;
 
 assign mouse_atari = { mouse_btn, mouse_y_cnt, mouse_x_cnt };   
@@ -250,11 +264,14 @@ always @(posedge clk) begin
       mouse_btn <= 2'b00;
       mouse_x <= 9'd0;
       mouse_y <= 9'd0; 
+      mouse_z <= 9'd0; 
 
       // atari mouse signal generation
       mouse_x_cnt <= 2'b00;   
       mouse_y_cnt <= 2'b00;      
       mouse_ev_cnt <= 10'd0;
+      mouse_z_up <= 1'b0;
+      mouse_z_down <= 1'b0;
 
    end else begin
 
@@ -270,13 +287,13 @@ always @(posedge clk) begin
 	 // x direction
 	 if(mouse_x[8]) begin
 	    // mouse_x is lower than 0
-	    mouse_x <= mouse_x + 1;
+	    mouse_x <= mouse_x + 1'd1;
 	    // grey counter
 	    mouse_x_cnt[0] <= ~mouse_x_cnt[1];
 	    mouse_x_cnt[1] <=  mouse_x_cnt[0];
 	 end else if(mouse_x[7:0] != 8'd0) begin
 	    // mouse_x is greater than 0
-	    mouse_x <= mouse_x - 1;
+	    mouse_x <= mouse_x - 1'd1;
 	    // grey counter
 	    mouse_x_cnt[0] <=  mouse_x_cnt[1];
 	    mouse_x_cnt[1] <= ~mouse_x_cnt[0];
@@ -284,17 +301,30 @@ always @(posedge clk) begin
 	 // y direction
 	 if(mouse_y[8]) begin
 	    // mouse_y is lower than 0
-	    mouse_y <= mouse_y + 1;
+	    mouse_y <= mouse_y + 1'd1;
 	    // grey counter
 	    mouse_y_cnt[0] <= ~mouse_y_cnt[1];
 	    mouse_y_cnt[1] <=  mouse_y_cnt[0];
 	 end else if(mouse_y[7:0] != 8'd0) begin
 	    // mouse_y is greater than 0
-	    mouse_y <= mouse_y - 1;
+	    mouse_y <= mouse_y - 1'd1;
 	    // grey counter
 	    mouse_y_cnt[0] <=  mouse_y_cnt[1];
 	    mouse_y_cnt[1] <= ~mouse_y_cnt[0];
 	 end
+	 // z direction
+	 if(mouse_z[8]) begin
+	    // mouse_z is lower than 0
+	    mouse_z <= mouse_z + 1'd1;
+	    mouse_z_up <= 1;
+	 end else if(mouse_z[8:0] != 9'd0) begin
+	    // mouse_z is greater than 0
+	    mouse_z <= mouse_z - 1'd1;
+	    mouse_z_down <= 1;
+	 end else begin
+	    mouse_z_up <= 0;
+	    mouse_z_down <= 0;
+	 end 
       end
       
       
@@ -312,14 +342,14 @@ always @(posedge clk) begin
 	    
             //  This is a start bit
             if (mouse_data == 1'b0)
-               mouse_bit_cnt <= mouse_bit_cnt + 'd1;
+               mouse_bit_cnt <= mouse_bit_cnt + 1'd1;
 	    
 	 end else begin
 	    
             if (mouse_bit_cnt < 10) begin
 	       
                //  Shift in data and parity (9 bits)
-               mouse_bit_cnt <= mouse_bit_cnt + 1;
+               mouse_bit_cnt <= mouse_bit_cnt + 1'd1;
                mouse_sr <= {mouse_data, mouse_sr[8:1]};
                mouse_parity <= mouse_parity ^ mouse_data;
                
@@ -334,8 +364,11 @@ always @(posedge clk) begin
 		  end else if(mouse_state == 2'd1) begin
 		     mouse_x <= { mouse_sign[0], mouse_sr[7:0] };
 		     mouse_state <= 2'd2;		     		       
-		  end else begin
+		  end else if(mouse_state == 2'd2) begin
 		     mouse_y <= ~{ mouse_sign[1], mouse_sr[7:0] } + 1'd1;
+		     mouse_state <= 2'd3;
+		  end else begin
+		     mouse_z <= {~{ mouse_sr[4:0] } + 1'd1, 4'h0};
 		     mouse_state <= 2'd0;		     		       
 		  end		  
 	       end
