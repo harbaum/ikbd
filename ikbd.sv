@@ -25,9 +25,11 @@ module ikbd (
 	     // but it is not implemented nor used in the Atari ST
 		output 	     caps_lock,
 
-	     // digital joystick with one fire button (FRLDU)
+		// digital joystick with one fire button (FRLDU) or mouse with two buttons
 		input [4:0]  joystick1,  // regular joystick
-		input [4:0]  joystick0   // joystick that can replace mouse
+		input [5:0]  joystick0,  // joystick that can replace mouse
+		output 	     joy_port_toggle // signal to toggle between normal and STe joy ports
+
 		);
 
    wire [7:0] 		     matrix[14:0];   
@@ -43,16 +45,17 @@ module ikbd (
 
 	    .mouse_clk(ps2_mouse_clk),
 	    .mouse_data(ps2_mouse_data),
-	    .mouse_atari(mouse_atari)
+	    .mouse_atari(mouse_atari),
+	    .joy_port_toggle(joy_port_toggle)
 	    );
 
    // keep track of mouse/joystick0 events to switch between them
    reg 	     mouse_active;   
-   reg [4:0] last_joystick0;
+   reg [5:0] last_joystick0;
    reg [5:0] last_mouse_atari;   
 
    // switch between mouse and joystick
-   wire [5:0] mouse_joy = mouse_active?mouse_atari:{1'b0,joystick0};   
+   wire [5:0] mouse_joy = mouse_active?mouse_atari:joystick0;
 
    // detect mouse and joystick activity
    always @(posedge clk) begin
